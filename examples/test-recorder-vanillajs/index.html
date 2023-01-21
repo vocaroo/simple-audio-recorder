@@ -40,44 +40,57 @@
 				}
 			}
 			
-			let recorder = new AudioRecorder({
-				workletUrl : "../../dist/mp3worklet.js",
-				workerUrl : "../../dist/mp3worker.js",
-				constraints : {
-					autoGainControl : true,
-					echoCancellation : true,
-					noiseSuppression : true
-				}
-			});
+			let audioData = []; // Store the encoded MP3 data
+			let recorder = null;
 			
-			// Store the encoded MP3 data
-			let audioData = [];
-
-			recorder.ondataavailable = (data) => {
-				console.log("data", data.length);
-				audioData.push(data);
-			};
-			
-			recorder.onstart = () => {
-				showtext("Recording started");
+			function setupRecorder() {
 				audioData = []; // clear old recorded data
-				showbuttons(["stop", "pause"]);
-			};
-			
-			recorder.onstop = () => {
-				showtext("Recording stopped");
-				let mp3Blob = new Blob(audioData, {type : "audio/mpeg"});
-				let mp3BlobUrl = URL.createObjectURL(mp3Blob);
-				showrecording(mp3BlobUrl);
-				showbuttons(["start"]);
-			};
-			
-			recorder.onerror = (error) => {
-				console.log(error);
-				showtext("Recording error " + String(error));
-			};
+				
+				recorder = new AudioRecorder({
+					workletUrl : "../../dist/mp3worklet.js",
+					workerUrl : "../../dist/mp3worker.js",
+					recordingGain : 1, // Initial recording volume
+					numberOfChannels : 1, // Channels. Currently only tested with one.
+					encoderBitRate : 96, // MP3 bit rate
+					streamBufferSize : 50000, // Size of encoded mp3 data chunks returned by ondataavailable
+					forceScriptProcessor : document.getElementById("id_forceScriptProcessor").checked,
+					constraints : { // Optional audio constraints, see https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
+						autoGainControl : true,
+						echoCancellation : true,
+						noiseSuppression : true
+					}
+				});
+				
+				recorder.ondataavailable = (data) => {
+					console.log("data", data.length);
+					audioData.push(data);
+				};
+				
+				recorder.onstart = () => {
+					showtext("Recording started");
+					showbuttons(["stop", "pause"]);
+				};
+				
+				recorder.onstop = () => {
+					showtext("Recording stopped");
+					// Combine all the mp3 data chunks from the audioData array into a Blob
+					let mp3Blob = new Blob(audioData, {type : "audio/mpeg"});
+					let mp3BlobUrl = URL.createObjectURL(mp3Blob);
+					showrecording(mp3BlobUrl);
+					showbuttons(["start"]);
+				};
+				
+				recorder.onerror = (error) => {
+					console.log(error);
+					showtext("Recording error " + String(error));
+				};
+			}
 			
 			function startRecording() {
+				// It's not necessary to set up the audio recorder each time, but we do
+				// it to allow enabling/disabling of the forceScriptProcessor option.
+				setupRecorder();
+				
 				showtext("Recording starting...");
 				recorder.start();
 				showbuttons([]);
@@ -106,6 +119,7 @@
 		<button id="id_stop" disabled onclick="stopRecording()">stop recording</button>
 		<button id="id_pause" disabled onclick="pause()">pause</button>
 		<button id="id_resume" disabled onclick="resume()">resume</button>
+		force using old script processor: <input id="id_forceScriptProcessor" type="checkbox"></input>
 		
 		<div id="debugLog"></div>
 	</body>
