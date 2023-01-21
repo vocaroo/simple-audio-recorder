@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+	</head>
+	<body>
+		<script type="text/javascript" src="../../dist/audiorecorder.js"></script>
+		
+		<link rel="prefetch" href="../../dist/mp3worklet.js" as="script">
+		<link rel="prefetch" href="../../dist/mp3worker.js" as="script">
+		
+		<script>
+			function showtext(str, url = null) {
+				const newDiv = document.createElement("div");
+				newDiv.appendChild(document.createTextNode(str));
+				document.getElementById("debugLog").prepend(newDiv);
+			}
+			
+			function showrecording(url) {
+				// Download link
+				const newA = document.createElement("a");
+				newA.href = url;
+				newA.download = "recording.mp3";
+				newA.appendChild(document.createTextNode("Save mp3 file"));
+				document.getElementById("debugLog").prepend(newA);
+				
+				// Embedded audio player
+				const newAudio = document.createElement("audio");
+				newAudio.src = url;
+				newAudio.controls = true;
+				document.getElementById("debugLog").prepend(newAudio);
+			}
+			
+			// Enable only the listed buttons
+			function showbuttons(enabledButtons) {
+				const buttons = ["start", "stop", "pause", "resume"];
+				
+				for (let buttonName of buttons) {
+					document.getElementById("id_" + buttonName).disabled = !enabledButtons.includes(buttonName);
+				}
+			}
+			
+			let recorder = new AudioRecorder({
+				workletUrl : "../../dist/mp3worklet.js",
+				workerUrl : "../../dist/mp3worker.js",
+				constraints : {
+					autoGainControl : true,
+					echoCancellation : true,
+					noiseSuppression : true
+				}
+			});
+			
+			// Store the encoded MP3 data
+			let audioData = [];
+
+			recorder.ondataavailable = (data) => {
+				console.log("data", data.length);
+				audioData.push(data);
+			};
+			
+			recorder.onstart = () => {
+				showtext("Recording started");
+				audioData = []; // clear old recorded data
+				showbuttons(["stop", "pause"]);
+			};
+			
+			recorder.onstop = () => {
+				showtext("Recording stopped");
+				let mp3Blob = new Blob(audioData, {type : "audio/mpeg"});
+				let mp3BlobUrl = URL.createObjectURL(mp3Blob);
+				showrecording(mp3BlobUrl);
+				showbuttons(["start"]);
+			};
+			
+			recorder.onerror = (error) => {
+				console.log(error);
+				showtext("Recording error " + String(error));
+			};
+			
+			function startRecording() {
+				showtext("Recording starting...");
+				recorder.start();
+				showbuttons([]);
+			}
+			
+			function stopRecording() {
+				showtext("Stopping...");
+				recorder.stop();
+				showbuttons([]);
+			}
+			
+			function pause() {
+				showtext("Pausing");
+				recorder.pause();
+				showbuttons(["stop", "resume"]);
+			}
+			
+			function resume() {
+				showtext("Resuming");
+				recorder.resume();
+				showbuttons(["stop", "pause"]);
+			}
+		</script>
+		
+		<button id="id_start" onclick="startRecording()">start recording</button>
+		<button id="id_stop" disabled onclick="stopRecording()">stop recording</button>
+		<button id="id_pause" disabled onclick="pause()">pause</button>
+		<button id="id_resume" disabled onclick="resume()">resume</button>
+		
+		<div id="debugLog"></div>
+	</body>
+</html>
