@@ -1,7 +1,7 @@
 {
-  "name": "VocarooAudioRecorder",
-  "version": "1.0.0",
-  "description": "Web audio recording library",
+  "name": "simple-audio-recorder",
+  "version": "0.0.1",
+  "description": "Web audio recording library with encoding to mp3 and chunked output",
   "main": "src/AudioRecorder.js",
   "scripts": {
     "build": "webpack && webpack --config webpack.worklet-config.js && webpack --config webpack.worker-config.js",
