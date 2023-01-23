@@ -5,7 +5,7 @@
   "main": "src/AudioRecorder.js",
   "scripts": {
     "build": "webpack && webpack --config webpack.worklet-config.js && webpack --config webpack.worker-config.js",
-    "start": "concurrently \"webpack --watch\" \"webpack --watch --config webpack.worklet-config.js\" \"webpack --watch --config webpack.worker-config.js\" \"live-server --no-browser\""
+    "start": "concurrently \"webpack --watch\" \"webpack --watch --config webpack.worklet-config.js\" \"webpack --watch --config webpack.worker-config.js\" \"live-server --open=/examples/main-example/\""
   },
   "license": "MIT",
   "devDependencies": {

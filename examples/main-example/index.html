@@ -2,14 +2,14 @@
 <html>
 	<head>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-	</head>
-	<body>
+		
 		<script type="text/javascript" src="../../dist/audiorecorder.js"></script>
 		
 		<!-- It's important to prefetch the workers to allow recording to start quickly! -->
 		<link rel="prefetch" href="../../dist/mp3worklet.js" as="script">
 		<link rel="prefetch" href="../../dist/mp3worker.js" as="script">
-		
+	</head>
+	<body>		
 		<script>
 			function showtext(str, url = null) {
 				const newDiv = document.createElement("div");

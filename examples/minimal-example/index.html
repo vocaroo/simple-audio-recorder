@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+	<head>
+		<script type="text/javascript" src="../../dist/audiorecorder.js"></script>
+	</head>
+	<body>
+		<script>
+			audioData = [];
+				
+			let recorder = new AudioRecorder({
+				workletUrl : "../../dist/mp3worklet.js",
+				workerUrl : "../../dist/mp3worker.js"
+			});
+			
+			recorder.ondataavailable = (data) => {
+				console.log("Audio data", data.length);
+				audioData.push(data);
+			};
+			
+			recorder.onstart = () => {
+				console.log("Recording started");
+			};
+			
+			recorder.onstop = () => {
+				console.log("Recording stopped");
+				// Combine all the mp3 data chunks from the audioData array into a Blob, and create an audio element to play it
+				const newAudio = document.createElement("audio");
+				newAudio.src = URL.createObjectURL(new Blob(audioData, {type : "audio/mpeg"}));
+				newAudio.controls = true;
+				document.getElementById("id_content").append(newAudio);
+			};
+			
+			recorder.onerror = (error) => {
+				console.log(error);
+			};
+		</script>
+		
+		<button id="id_start" onclick="recorder.start()">start recording</button>
+		<button id="id_stop" onclick="recorder.stop()">stop recording</button>
+		
+		<div id="id_content"></div>
+	</body>
+</html>
