@@ -6,11 +6,13 @@
 	<body>
 		<script>
 			audioData = [];
-				
-			let recorder = new AudioRecorder({
+			
+			AudioRecorder.preload({
 				workletUrl : "../../dist/mp3worklet.js",
 				workerUrl : "../../dist/mp3worker.js"
 			});
+				
+			let recorder = new AudioRecorder();
 			
 			recorder.ondataavailable = (data) => {
 				console.log("Audio data", data.length);

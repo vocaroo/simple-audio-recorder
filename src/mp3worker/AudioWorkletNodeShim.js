@@ -14,6 +14,7 @@ export function waitForAudioWorkletNodeShim(workerUrl) {
 
 export function createAudioWorkletNodeShim(context, options) {
 	let stopped = false;
+	let paused = false;
 	let scriptProcessorNode = context.createScriptProcessor(4096, options.numberOfChannels, options.numberOfChannels);
 	
 	scriptProcessorNode.connect(context.destination);
@@ -34,6 +35,12 @@ export function createAudioWorkletNodeShim(context, options) {
 				case "stop_encoding":
 					encoder.stop();
 					stopped = true;
+					break;
+				case "pause":
+					paused = true;
+					break;
+				case "resume":
+					paused = false;
 					break;
 			}
 		}
@@ -57,7 +64,7 @@ export function createAudioWorkletNodeShim(context, options) {
 	scriptProcessorNode.onaudioprocess = (event) => {
 		// seems like script processor still receives data even after the stream
 		// has stopped, so we need check for "stopped" here.
-		if (!stopped) {
+		if (!stopped && !paused) {
 			let inputBuffer = event.inputBuffer;
 			let buffers = [];
 

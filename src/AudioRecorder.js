@@ -15,6 +15,69 @@ const states = {
 	STOPPING : 4
 };
 
+const DEFAULT_OPTIONS = {
+	recordingGain : 1,
+	numberOfChannels : 1,
+	encoderBitRate : 96,
+	streamBufferSize : 50000,
+	forceScriptProcessor : false,
+	constraints : {}
+};
+
+const DEFAULT_PRELOAD_OPTIONS = {
+	workletUrl : "./mp3worklet.js",
+	workerUrl : "./mp3worker.js",
+	preloadBoth : false
+};
+
+// We use a single global AudioContext for all audiorecorders so we only load the AudioWorklet once (and can preload it)
+let audioContext = new AudioContext();
+let preloadOptions = null;
+let workletPromise = null;
+let workerPromise = null;
+
+function loadWorklet() {
+	if (workletPromise == null) {
+		workletPromise = audioContext.audioWorklet.addModule(preloadOptions.workletUrl);
+		
+		workletPromise.catch(error => { // Reset so it can be tried again if user presses to record again
+			workletPromise = null;
+		});
+	}
+	
+	return workletPromise;
+}
+
+function loadWorker() {
+	if (workerPromise == null) {
+		workerPromise = waitForAudioWorkletNodeShim(preloadOptions.workerUrl);
+		
+		workerPromise.catch(error => { // Reset so it can be tried again if user presses to record again
+			workerPromise = null;
+		});
+	}
+	
+	return workerPromise;
+}
+
+function preloadWorkers(options) {
+	preloadOptions = {
+		...DEFAULT_PRELOAD_OPTIONS,
+		...options
+	};
+	
+	if (options.preloadBoth) {
+		loadWorklet();
+		loadWorker();
+	} else {
+		if (useAudioWorklet) {
+			loadWorklet();
+		} else {
+			loadWorker();
+		}
+	}
+}
+
 /*
 Callbacks:
 	ondataavailable
@@ -24,14 +87,7 @@ Callbacks:
 export default class AudioRecorder {
 	constructor(options) {
 		this.options = {
-			workletUrl : "./mp3worklet.js",
-			workerUrl : "./mp3worker.js",
-			recordingGain : 1,
-			numberOfChannels : 1,
-			encoderBitRate : 96,
-			streamBufferSize : 50000,
-			forceScriptProcessor : false,
-			constraints : {},
+			...DEFAULT_OPTIONS,
 			...options
 		};
 
@@ -39,21 +95,22 @@ export default class AudioRecorder {
 		this.cancelStartCallback = null;
 		this.encoder = null;
 	}
+	
+	static preload(options) {
+		preloadWorkers(options);
+	}
 
 	// Stream must be created before calling
-	async createAudioContext() {
-		this.audioContext = new AudioContext();
-
+	async createEncoderWorklet() {
 		if (useAudioWorklet && !this.options.forceScriptProcessor) {
 			console.log("Using AudioWorklet");
+			await loadWorklet();
 			
-			await this.audioContext.audioWorklet.addModule(this.options.workletUrl);
-			
-			this.encoderWorkletNode = new AudioWorkletNode(this.audioContext, "mp3-encoder-processor", {
+			this.encoderWorkletNode = new AudioWorkletNode(audioContext, "mp3-encoder-processor", {
 				numberOfInputs : 1,
 				numberOfOutputs : 0,
 				processorOptions : {
-					originalSampleRate : this.audioContext.sampleRate,
+					originalSampleRate : audioContext.sampleRate,
 					numberOfChannels : this.options.numberOfChannels,
 					encoderBitRate : this.options.encoderBitRate,
 					streamBufferSize : this.options.streamBufferSize
@@ -61,10 +118,10 @@ export default class AudioRecorder {
 			});
 		} else {
 			console.log("Using ScriptProcessorNode");
-			await waitForAudioWorkletNodeShim(this.options.workerUrl);
+			await loadWorker();
 			
-			this.encoderWorkletNode = createAudioWorkletNodeShim(this.audioContext, {
-				originalSampleRate : this.audioContext.sampleRate,
+			this.encoderWorkletNode = createAudioWorkletNodeShim(audioContext, {
+				originalSampleRate : audioContext.sampleRate,
 				numberOfChannels : this.options.numberOfChannels,
 				encoderBitRate : this.options.encoderBitRate,
 				streamBufferSize : this.options.streamBufferSize
@@ -87,11 +144,11 @@ export default class AudioRecorder {
 	}
 	
 	connectAudioNodes() {
-		this.recordingGainNode = this.audioContext.createGain();
+		this.recordingGainNode = audioContext.createGain();
 		this.setRecordingGain(this.options.recordingGain);
 		this.recordingGainNode.connect(this.encoderWorkletNode);
 
-		this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
+		this.sourceNode = audioContext.createMediaStreamSource(this.stream);
 		this.sourceNode.connect(this.recordingGainNode);
 	}
 
@@ -100,8 +157,6 @@ export default class AudioRecorder {
 		this.encoderWorkletNode && this.encoderWorkletNode.disconnect();
 		this.recordingGainNode && this.recordingGainNode.disconnect();
 		this.sourceNode && this.sourceNode.disconnect();
-		this.audioContext && this.audioContext.close();
-		this.audioContext && delete this.audioContext;
 		this.stream && delete this.stream;
 	}
 
@@ -109,13 +164,22 @@ export default class AudioRecorder {
 		this.options.recordingGain = gain;
 
 		if (this.recordingGainNode) {
-			this.recordingGainNode.gain.setTargetAtTime(gain, this.audioContext.currentTime, 0.01);
+			this.recordingGainNode.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
 		}
 	}
 
 	start() {
 		if (this.state != states.STOPPED) {
 			throw new Error("Called start when not in stopped state");
+		}
+		
+		if (preloadOptions == null) {
+			throw new Error("preload was not called on AudioRecorder");
+		}
+		
+		// Chrome will keep the audio context in a suspended state until there is user interaction
+		if (audioContext.state == "suspended") {
+			audioContext.resume();
 		}
 		
 		this.state = states.STARTING;
@@ -128,7 +192,7 @@ export default class AudioRecorder {
 			cancelStart = true;
 		};
 
-		this.createAudioContext().then(() => {
+		this.createEncoderWorklet().then(() => {
 			if (cancelStart) {
 				this.cleanup();
 				return;
@@ -150,7 +214,7 @@ export default class AudioRecorder {
 					this.connectAudioNodes();
 					
 					this.state = states.RECORDING;
-					this.onstart && this.onstart({sampleRate : this.audioContext.sampleRate});
+					this.onstart && this.onstart({sampleRate : audioContext.sampleRate});
 				});
 		}).catch((error) => {
 			if (cancelStart) {
@@ -178,16 +242,14 @@ export default class AudioRecorder {
 
 	pause() {
 		if (this.state == states.RECORDING) {
-			//this.sourceNode.disconnect();
-			this.audioContext.suspend();
+			this.encoderWorkletNode.port.postMessage({message : "pause"});
 			this.state = states.PAUSED;
 		}
 	}
 
 	resume() {
 		if (this.state == states.PAUSED) {
-			//this.sourceNode.connect(this.recordingGainNode);
-			this.audioContext.resume();
+			this.encoderWorkletNode.port.postMessage({message : "resume"});
 			this.state = states.RECORDING;
 		}
 	}

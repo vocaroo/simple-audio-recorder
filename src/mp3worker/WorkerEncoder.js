@@ -44,7 +44,6 @@ function loadWorker(workerUrl) {
 	worker.onmessage = (event) => {
 		switch (event.data.message) {
 			case "ready":
-				console.log("MP3 worker ready");
 				notifyWorkerState(workerStates.READY);
 				break;
 			case "data":
