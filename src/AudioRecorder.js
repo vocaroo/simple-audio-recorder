@@ -98,6 +98,10 @@ export default class AudioRecorder {
 		this.encodedData = null;
 	}
 	
+	static isRecordingSupported() {
+		return AudioContext && navigator && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+	}
+	
 	static preload(options) {
 		preloadWorkers(options);
 	}
