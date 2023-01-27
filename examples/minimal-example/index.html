@@ -5,29 +5,21 @@
 	</head>
 	<body>
 		<script>
-			audioData = [];
-			
 			AudioRecorder.preload({
 				workletUrl : "../../dist/mp3worklet.js",
 				workerUrl : "../../dist/mp3worker.js"
 			});
-				
-			let recorder = new AudioRecorder();
 			
-			recorder.ondataavailable = (data) => {
-				console.log("Audio data", data.length);
-				audioData.push(data);
-			};
+			let recorder = new AudioRecorder();
 			
 			recorder.onstart = () => {
 				console.log("Recording started");
 			};
 			
-			recorder.onstop = () => {
+			recorder.onstop = (mp3Blob) => {
 				console.log("Recording stopped");
-				// Combine all the mp3 data chunks from the audioData array into a Blob, and create an audio element to play it
 				const newAudio = document.createElement("audio");
-				newAudio.src = URL.createObjectURL(new Blob(audioData, {type : "audio/mpeg"}));
+				newAudio.src = URL.createObjectURL(mp3Blob);
 				newAudio.controls = true;
 				document.getElementById("id_content").append(newAudio);
 			};

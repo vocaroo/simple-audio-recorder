@@ -19,6 +19,7 @@ const DEFAULT_OPTIONS = {
 	recordingGain : 1,
 	numberOfChannels : 1,
 	encoderBitRate : 96,
+	streaming : false,
 	streamBufferSize : 50000,
 	forceScriptProcessor : false,
 	constraints : {}
@@ -94,6 +95,7 @@ export default class AudioRecorder {
 		this.state = states.STOPPED;
 		this.cancelStartCallback = null;
 		this.encoder = null;
+		this.encodedData = null;
 	}
 	
 	static preload(options) {
@@ -131,13 +133,19 @@ export default class AudioRecorder {
 		this.encoderWorkletNode.port.onmessage = ({data}) => {
 			switch (data.message) {
 				case "data":
-					this.ondataavailable && this.ondataavailable(data.data);
+					if (this.options.streaming) {
+						this.ondataavailable && this.ondataavailable(data.data);
+					} else {
+						this.encodedData.push(data.data);
+					}
 					break;
 				case "stopped":
 					// Encoding has finished. Can cleap up audio context etc
 					this.cleanup();
 					this.state = states.STOPPED;
-					this.onstop && this.onstop();
+					this.onstop && this.onstop(
+						this.options.streaming ? undefined : new Blob(this.encodedData, {type : "audio/mpeg"})
+					);
 					break;
 			}
 		};
@@ -183,6 +191,7 @@ export default class AudioRecorder {
 		}
 		
 		this.state = states.STARTING;
+		this.encodedData = [];
 
 		let cancelStart = false;
 
