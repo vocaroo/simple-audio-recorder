@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+	<head>
+		<script type="text/javascript" src="../../dist/audiorecorder.js"></script>
+	</head>
+	<body>
+		<script>
+			AudioRecorder.preload({
+				workletUrl : "../../dist/mp3worklet.js",
+				workerUrl : "../../dist/mp3worker.js"
+			});
+			
+			let recorder = new AudioRecorder();
+			
+			function start() {
+				recorder.start().then(() => {
+					console.log("Recording started...");
+				}).catch(error => {
+					console.log("Recording start error", error);
+				});
+			}
+			
+			function stop() {
+				recorder.stop().then(mp3Blob => {
+					console.log("Recording stopped...");
+					
+					const newAudio = document.createElement("audio");
+					newAudio.src = URL.createObjectURL(mp3Blob);
+					newAudio.controls = true;
+					document.getElementById("id_content").append(newAudio);
+				}).catch(error => {
+					console.log("Recording stop error", error);
+				});
+			}
+		</script>
+		
+		<button id="id_start" onclick="start()">start recording</button>
+		<button id="id_stop" onclick="stop()">stop recording</button>
+		
+		<div id="id_content"></div>
+	</body>
+</html>

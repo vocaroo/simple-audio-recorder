@@ -79,6 +79,12 @@ function preloadWorkers(options) {
 	}
 }
 
+function createCancelStartError() {
+	let error = new Error("AudioRecorder start cancelled by call to stop");
+	error.name = "CancelStartError";
+	return error;
+}
+
 /*
 Callbacks:
 	ondataavailable
@@ -97,6 +103,7 @@ export default class AudioRecorder {
 		this.cancelStartCallback = null;
 		this.encoder = null;
 		this.encodedData = null;
+		this.stopPromiseResolve = null;
 	}
 	
 	static isRecordingSupported() {
@@ -148,9 +155,9 @@ export default class AudioRecorder {
 					// Encoding has finished. Can cleap up audio context etc
 					this.cleanup();
 					this.state = states.STOPPED;
-					this.onstop && this.onstop(
-						this.options.streaming ? undefined : new Blob(this.encodedData, {type : "audio/mpeg"})
-					);
+					let mp3Blob = this.options.streaming ? undefined : new Blob(this.encodedData, {type : "audio/mpeg"});
+					this.onstop && this.onstop(mp3Blob);
+					this.stopPromiseResolve(mp3Blob);
 					break;
 			}
 		};
@@ -181,7 +188,7 @@ export default class AudioRecorder {
 		}
 	}
 
-	start() {
+	async start() {
 		if (this.state != states.STOPPED) {
 			throw new Error("Called start when not in stopped state");
 		}
@@ -205,53 +212,61 @@ export default class AudioRecorder {
 		this.cancelStartCallback = () => {
 			cancelStart = true;
 		};
-
-		this.createEncoderWorklet().then(() => {
+		
+		try {
+			await this.createEncoderWorklet();
+			
 			if (cancelStart) {
-				this.cleanup();
-				return;
+				throw createCancelStartError();
 			}
-
+			
 			// If a constraint is set, pass them, otherwise just pass true
 			let constraints = Object.keys(this.options.constraints).length > 0 ? this.options.constraints : true;
-
-			return navigator.mediaDevices.getUserMedia({audio : constraints})
-				.then((stream) => {
-					if (cancelStart) {
-						stopStream(stream);
-						this.cleanup();
-						return;
-					}
-
-					// Successfully recording!
-					this.stream = stream;
-					this.connectAudioNodes();
-					
-					this.state = states.RECORDING;
-					this.onstart && this.onstart({sampleRate : audioContext.sampleRate});
-				});
-		}).catch((error) => {
+			
+			let stream = await navigator.mediaDevices.getUserMedia({audio : constraints});
+			
+			if (cancelStart) {
+				stopStream(stream);
+				throw createCancelStartError();
+			}
+			
+			// Successfully recording!
+			this.stream = stream;
+			this.connectAudioNodes();
+			
+			this.state = states.RECORDING;
+			this.onstart && this.onstart();
+			
+		} catch (error) {
 			if (cancelStart) {
 				this.cleanup();
-				return;
+				throw createCancelStartError();
 			}
-
+			
 			this.state = states.STOPPED;
 			this.onerror && this.onerror(error);
-		});
+			
+			throw error;
+		}
 	}
 
 	stop() {
 		if (this.state == states.RECORDING || this.state == states.PAUSED) {
 			this.state = states.STOPPING;
-			// Stop recording, but don't destroy actual audio context until all encoding has finished.
+			// Stop recording, but encoding may not have finished yet.
 			stopStream(this.stream);
 			this.encoderWorkletNode.port.postMessage({message : "stop_encoding"});
+			
+			return new Promise((resolve, reject) => {
+				this.stopPromiseResolve = resolve;
+			});
 		} else if (this.state == states.STARTING) {
 			this.cancelStartCallback && this.cancelStartCallback();
 			this.cancelStartCallback = null;
 			this.state = states.STOPPED;
 		}
+		
+		return Promise.reject(new Error("Called stop when AudioRecorder was not recording"));
 	}
 
 	pause() {
