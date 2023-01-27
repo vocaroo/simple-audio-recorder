@@ -84,6 +84,7 @@ Callbacks:
 	ondataavailable
 	onstart - called when recording successfully started
 	onstop - called when all data finished encoding and was output
+	onerror - error starting recording
 */
 export default class AudioRecorder {
 	constructor(options) {
