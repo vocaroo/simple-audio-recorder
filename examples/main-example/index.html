@@ -93,12 +93,11 @@
 				recorder.onerror = (error) => {
 					console.log(error);
 					showtext("Recording error " + String(error));
+					showbuttons(["start"]);
 				};
 			}
 			
 			function startRecording() {
-				// It's not necessary to set up the audio recorder each time, but we do
-				// it to allow enabling/disabling of the forceScriptProcessor option.
 				setupRecorder();
 				
 				showtext("Recording starting...");

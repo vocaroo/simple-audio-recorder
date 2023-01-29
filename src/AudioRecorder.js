@@ -85,6 +85,12 @@ function createCancelStartError() {
 	return error;
 }
 
+function createWorkerLoadError() {
+	let error = new Error("Failed to load worklet or worker");
+	error.name = "WorkerError";
+	return error;
+}
+
 /*
 Callbacks:
 	ondataavailable
@@ -100,10 +106,10 @@ export default class AudioRecorder {
 		};
 
 		this.state = states.STOPPED;
-		this.cancelStartCallback = null;
 		this.encoder = null;
 		this.encodedData = null;
 		this.stopPromiseResolve = null;
+		this.stopPromiseReject = null;
 	}
 	
 	static isRecordingSupported() {
@@ -118,7 +124,11 @@ export default class AudioRecorder {
 	async createEncoderWorklet() {
 		if (useAudioWorklet && !this.options.forceScriptProcessor) {
 			console.log("Using AudioWorklet");
-			await loadWorklet();
+			try {
+				await loadWorklet();
+			} catch (error) {
+				throw createWorkerLoadError();
+			}
 			
 			this.encoderWorkletNode = new AudioWorkletNode(audioContext, "mp3-encoder-processor", {
 				numberOfInputs : 1,
@@ -132,7 +142,11 @@ export default class AudioRecorder {
 			});
 		} else {
 			console.log("Using ScriptProcessorNode");
-			await loadWorker();
+			try {
+				await loadWorker();
+			} catch (error) {
+				throw createWorkerLoadError();
+			}
 			
 			this.encoderWorkletNode = createAudioWorkletNodeShim(audioContext, {
 				originalSampleRate : audioContext.sampleRate,
@@ -152,7 +166,7 @@ export default class AudioRecorder {
 					}
 					break;
 				case "stopped":
-					// Encoding has finished. Can cleap up audio context etc
+					// Encoding has finished. Can clean up some things
 					this.cleanup();
 					this.state = states.STOPPED;
 					let mp3Blob = this.options.streaming ? undefined : new Blob(this.encodedData, {type : "audio/mpeg"});
@@ -188,7 +202,7 @@ export default class AudioRecorder {
 		}
 	}
 
-	async start() {
+	async __start() {
 		if (this.state != states.STOPPED) {
 			throw new Error("Called start when not in stopped state");
 		}
@@ -204,19 +218,11 @@ export default class AudioRecorder {
 		
 		this.state = states.STARTING;
 		this.encodedData = [];
-
-		let cancelStart = false;
-
-		// If cancelStart is set, we should abandon everything and not alter any local state,
-		// since recording may have been retried already.
-		this.cancelStartCallback = () => {
-			cancelStart = true;
-		};
 		
 		try {
 			await this.createEncoderWorklet();
 			
-			if (cancelStart) {
+			if (this.state == states.STOPPING) {
 				throw createCancelStartError();
 			}
 			
@@ -225,7 +231,7 @@ export default class AudioRecorder {
 			
 			let stream = await navigator.mediaDevices.getUserMedia({audio : constraints});
 			
-			if (cancelStart) {
+			if (this.state == states.STOPPING) {
 				stopStream(stream);
 				throw createCancelStartError();
 			}
@@ -236,37 +242,77 @@ export default class AudioRecorder {
 			
 			this.state = states.RECORDING;
 			this.onstart && this.onstart();
-			
 		} catch (error) {
-			if (cancelStart) {
-				this.cleanup();
-				throw createCancelStartError();
-			}
+			let startWasCancelled = this.state == states.STOPPING;
+			this.cleanup();
 			
+			// Reset so can attempt start again
 			this.state = states.STOPPED;
-			this.onerror && this.onerror(error);
+			
+			// Reject the stop promise now we have cleaned up and are in STOPPED state and ready to start() again
+			if (startWasCancelled) {
+				this.stopPromiseReject(error);
+			}
 			
 			throw error;
 		}
 	}
 
-	stop() {
+	async __stop() {
 		if (this.state == states.RECORDING || this.state == states.PAUSED) {
 			this.state = states.STOPPING;
 			// Stop recording, but encoding may not have finished yet.
 			stopStream(this.stream);
 			this.encoderWorkletNode.port.postMessage({message : "stop_encoding"});
 			
+			// Will be resolved later when encoding finishes
 			return new Promise((resolve, reject) => {
 				this.stopPromiseResolve = resolve;
 			});
 		} else if (this.state == states.STARTING) {
-			this.cancelStartCallback && this.cancelStartCallback();
-			this.cancelStartCallback = null;
-			this.state = states.STOPPED;
+			this.state = states.STOPPING;
+			
+			// Will be rejected later when start() has completely finished operation
+			return new Promise((resolve, reject) => {
+				this.stopPromiseReject = reject;
+			})
 		}
 		
-		return Promise.reject(new Error("Called stop when AudioRecorder was not recording"));
+		throw new Error("Called stop when AudioRecorder was not started");
+	}
+	
+	start() {
+		let promise = this.__start();
+		
+		promise.catch(error => {
+			// Don't send CancelStartError to onerror, as it's not *really* an error state
+			// Only used as a promise rejection to indicate that starting did not succeed.
+			if (error.name != "CancelStartError") {
+				this.onerror && this.onerror(error);
+			}
+		});
+		
+		if (!this.onerror) {
+			return promise;
+		}
+	}
+	
+	stop() {
+		let promise = this.__stop();
+		
+		promise.catch(error => {
+			if (error.name == "CancelStartError") {
+				// Stop was called before recording even started
+				// Send a onstop event anyway to indicate that recording can be retried.
+				this.onstop && this.onstop(this.options.streaming ? undefined : null);
+			} else {
+				this.onerror && this.onerror(error);
+			}
+		});
+		
+		if (!this.onerror) {
+			return promise;
+		}
 	}
 
 	pause() {
