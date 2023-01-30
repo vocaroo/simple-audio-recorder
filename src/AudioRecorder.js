@@ -1,5 +1,6 @@
 import {waitForAudioWorkletNodeShim, createAudioWorkletNodeShim} from "./mp3worker/AudioWorkletNodeShim.js";
 import {stopStream, detectIOS, detectSafari} from "./utils.js";
+import Timer from "./Timer.js";
 
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 // Don't use audio worklet on iOS or safari, fall back to ScriptProcessor (via AudioWorkletNodeShim)
@@ -114,6 +115,7 @@ export default class AudioRecorder {
 		this.encodedData = null;
 		this.stopPromiseResolve = null;
 		this.stopPromiseReject = null;
+		this.timer = new Timer();
 	}
 	
 	static isRecordingSupported() {
@@ -211,6 +213,10 @@ export default class AudioRecorder {
 			this.recordingGainNode.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
 		}
 	}
+	
+	get time() {
+		return this.timer.getTime();
+	}
 
 	async __start() {
 		if (this.state != states.STOPPED) {
@@ -257,6 +263,7 @@ export default class AudioRecorder {
 			// Successfully recording!
 			this.stream = stream;
 			this.connectAudioNodes();
+			this.timer.resetAndStart();
 			
 			this.state = states.RECORDING;
 			this.onstart && this.onstart();
@@ -277,6 +284,8 @@ export default class AudioRecorder {
 	}
 
 	async __stop() {
+		this.timer.stop();
+		
 		if (this.state == states.RECORDING || this.state == states.PAUSED) {
 			this.state = states.STOPPING;
 			// Stop recording, but encoding may not have finished yet.
@@ -337,6 +346,7 @@ export default class AudioRecorder {
 		if (this.state == states.RECORDING) {
 			this.encoderWorkletNode.port.postMessage({message : "pause"});
 			this.state = states.PAUSED;
+			this.timer.stop();
 		}
 	}
 
@@ -344,6 +354,7 @@ export default class AudioRecorder {
 		if (this.state == states.PAUSED) {
 			this.encoderWorkletNode.port.postMessage({message : "resume"});
 			this.state = states.RECORDING;
+			this.timer.start();
 		}
 	}
 }

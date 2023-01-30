@@ -40,6 +40,9 @@
 			let audioData = []; // Store the encoded MP3 data chunks
 			let recorder = null;
 			
+			// For debugging
+			let timerIntervalId = null;
+			
 			// Preload the worker immediately on page load to enable recording to start instantly
 			// Either the worklet OR worker will be preloaded, depending on the browser support.
 			AudioRecorder.preload({
@@ -79,10 +82,15 @@
 				recorder.onstart = () => {
 					showtext("Recording started");
 					showbuttons(["stop", "pause"]);
+					
+					timerIntervalId = setInterval(() => {
+						document.getElementById("id_timer").innerHTML = (recorder.time / 1000.0).toFixed(2) + "s";
+					}, 100);
 				};
 				
 				recorder.onstop = () => {
-					showtext("Recording stopped");
+					showtext("Recording stopped and encoding finished.");
+					
 					// Combine all the mp3 data chunks from the audioData array into a Blob
 					let mp3Blob = new Blob(audioData, {type : "audio/mpeg"});
 					let mp3BlobUrl = URL.createObjectURL(mp3Blob);
@@ -99,14 +107,14 @@
 			
 			function startRecording() {
 				setupRecorder();
-				
 				showtext("Recording starting...");
 				recorder.start();
 				showbuttons([]);
 			}
 			
 			function stopRecording() {
-				showtext("Stopping...");
+				showtext("Stopping recording at " + String(recorder.time / 1000.0) + " seconds...");
+				clearInterval(timerIntervalId);
 				recorder.stop();
 				showbuttons([]);
 			}
@@ -125,7 +133,7 @@
 		</script>
 		
 		<button id="id_start" onclick="startRecording()">start recording</button>
-		<button id="id_stop" disabled onclick="stopRecording()">stop recording</button>
+		<button id="id_stop" disabled onclick="stopRecording()">stop recording <span id="id_timer"></span></button>
 		<button id="id_pause" disabled onclick="pause()">pause</button>
 		<button id="id_resume" disabled onclick="resume()">resume</button>
 		force using old script processor: <input id="id_forceScriptProcessor" type="checkbox"></input>
