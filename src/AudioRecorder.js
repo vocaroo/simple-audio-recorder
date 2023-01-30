@@ -17,12 +17,16 @@ const states = {
 
 const DEFAULT_OPTIONS = {
 	recordingGain : 1,
-	numberOfChannels : 1,
 	encoderBitRate : 96,
 	streaming : false,
 	streamBufferSize : 50000,
 	forceScriptProcessor : false,
-	constraints : {}
+	constraints : {
+		channelCount : 1,
+		autoGainControl : true,
+		echoCancellation : true,
+		noiseSuppression : true
+	}
 };
 
 const DEFAULT_PRELOAD_OPTIONS = {
@@ -119,38 +123,44 @@ export default class AudioRecorder {
 	static preload(options) {
 		preloadWorkers(options);
 	}
+	
+	// useAudioWorklet may be set... But will we REALLY use it?
+	reallyUseAudioWorklet() {
+		return useAudioWorklet && !this.options.forceScriptProcessor;
+	}
+	
+	async tryLoadWorklet() {
+		let loadFunc = this.reallyUseAudioWorklet() ? loadWorklet : loadWorker;
+		
+		try {
+			await loadFunc();
+		} catch (error) {
+			throw createWorkerLoadError();
+		}
+	}
 
-	// Stream must be created before calling
-	async createEncoderWorklet() {
-		if (useAudioWorklet && !this.options.forceScriptProcessor) {
+	createEncoderWorklet(trackSettings) {
+		let numberOfChannels = "channelCount" in trackSettings ? trackSettings.channelCount : 1;
+		
+		if (this.reallyUseAudioWorklet()) {
 			console.log("Using AudioWorklet");
-			try {
-				await loadWorklet();
-			} catch (error) {
-				throw createWorkerLoadError();
-			}
 			
 			this.encoderWorkletNode = new AudioWorkletNode(audioContext, "mp3-encoder-processor", {
 				numberOfInputs : 1,
 				numberOfOutputs : 0,
 				processorOptions : {
 					originalSampleRate : audioContext.sampleRate,
-					numberOfChannels : this.options.numberOfChannels,
+					numberOfChannels : numberOfChannels,
 					encoderBitRate : this.options.encoderBitRate,
 					streamBufferSize : this.options.streamBufferSize
 				}
 			});
 		} else {
 			console.log("Using ScriptProcessorNode");
-			try {
-				await loadWorker();
-			} catch (error) {
-				throw createWorkerLoadError();
-			}
 			
 			this.encoderWorkletNode = createAudioWorkletNodeShim(audioContext, {
 				originalSampleRate : audioContext.sampleRate,
-				numberOfChannels : this.options.numberOfChannels,
+				numberOfChannels : numberOfChannels,
 				encoderBitRate : this.options.encoderBitRate,
 				streamBufferSize : this.options.streamBufferSize
 			});
@@ -220,7 +230,7 @@ export default class AudioRecorder {
 		this.encodedData = [];
 		
 		try {
-			await this.createEncoderWorklet();
+			await this.tryLoadWorklet();
 			
 			if (this.state == states.STOPPING) {
 				throw createCancelStartError();
@@ -235,6 +245,14 @@ export default class AudioRecorder {
 				stopStream(stream);
 				throw createCancelStartError();
 			}
+			
+			let audioTracks = stream.getAudioTracks();
+			
+			if (audioTracks.length < 1) {
+				throw new Error("No audio tracks in user media stream");
+			}
+			
+			this.createEncoderWorklet(audioTracks[0].getSettings());
 			
 			// Successfully recording!
 			this.stream = stream;

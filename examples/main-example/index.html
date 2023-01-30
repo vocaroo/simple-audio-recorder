@@ -55,12 +55,12 @@
 				
 				recorder = new AudioRecorder({
 					recordingGain : 1, // Initial recording volume
-					numberOfChannels : 1, // Channels. Currently only tested with one.
 					encoderBitRate : 96, // MP3 bit rate
 					streaming : true, // Data will be returned in chunks (ondataavailable callback) as it is encoded,
 										// rather than at the end as one large blob
 					streamBufferSize : 50000, // Size of encoded mp3 data chunks returned by ondataavailable					
 					constraints : { // Optional audio constraints, see https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
+						channelCount : 1, // Set to 2 to hint for stereo if it's available
 						autoGainControl : true,
 						echoCancellation : true,
 						noiseSuppression : true
