@@ -1,6 +1,6 @@
 {
   "name": "simple-audio-recorder",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Web audio recording library with encoding to mp3 and chunked output",
   "main": "src/AudioRecorder.js",
   "scripts": {
