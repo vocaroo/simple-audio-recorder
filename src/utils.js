@@ -24,3 +24,7 @@ export function detectIOS() {
 export function detectSafari() {
 	return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 }
+
+export function is_iPhone_OS_16_1() {
+	return window.navigator.userAgent.includes("iPhone OS 16_1");
+}

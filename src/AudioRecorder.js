@@ -1,5 +1,5 @@
 import {waitForAudioWorkletNodeShim, createAudioWorkletNodeShim} from "./mp3worker/AudioWorkletNodeShim.js";
-import {stopStream, detectIOS, detectSafari} from "./utils.js";
+import {stopStream, detectIOS, detectSafari, is_iPhone_OS_16_1} from "./utils.js";
 import Timer from "./Timer.js";
 
 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -41,6 +41,15 @@ let audioContext = new AudioContext();
 let preloadOptions = null;
 let workletPromise = null;
 let workerPromise = null;
+
+function recreateAudioContext() { // Ugly hack for iPhone OS 16.1
+	audioContext.close();
+	audioContext = new AudioContext();
+	
+	// Might need to reload worklet (if it's even used on iOS...)
+	// Worker is not attached to audioContext so does not need reloading.
+	workletPromise = null;
+}
 
 function loadWorklet() {
 	if (workletPromise == null) {
@@ -227,15 +236,23 @@ export default class AudioRecorder {
 			throw new Error("preload was not called on AudioRecorder");
 		}
 		
-		// Chrome will keep the audio context in a suspended state until there is user interaction
-		if (audioContext.state == "suspended") {
-			audioContext.resume();
-		}
-		
 		this.state = states.STARTING;
 		this.encodedData = [];
 		
 		try {
+			// Chrome will keep the audio context in a suspended state until there is user interaction
+			// iPhone iOS 16.1 doesn't like this.
+			if (audioContext.state == "suspended" && !is_iPhone_OS_16_1()) {
+				audioContext.resume();
+			}
+			
+			// Ugly hack!
+			// iPhone 16.1 doesn't like it if an AudioContext is used more than once, at least when using getUserMedia
+			if (is_iPhone_OS_16_1()) {
+				console.log("Using ugly fix for iPhone OS 16.1.");
+				recreateAudioContext();
+			}
+			
 			await this.tryLoadWorklet();
 			
 			if (this.state == states.STOPPING) {
