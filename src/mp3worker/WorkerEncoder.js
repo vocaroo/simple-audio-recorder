@@ -122,11 +122,14 @@ export default class WorkerEncoder {
 	}
 
 	sendData(buffers) {
-		worker.postMessage({
-			command : "data",
-			jobId : this.jobId,
-			buffers : buffers
-		});
+		// Check for an empty buffer
+		if (buffers && buffers.length > 0 && buffers[0].length > 0) {
+			worker.postMessage({
+				command : "data",
+				jobId : this.jobId,
+				buffers : buffers
+			});
+		}
 	}
 
 	stop() {
