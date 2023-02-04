@@ -9,10 +9,7 @@ Why use an MP3 encoder when the MediaRecorder API is available? Because MP3 is t
 ```javascript
 import AudioRecorder from "simple-audio-recorder";
 
-AudioRecorder.preload({
-	workletUrl : "mp3worklet.js",
-	workerUrl : "mp3worker.js"
-});
+AudioRecorder.preload("mp3worker.js");
 
 let recorder = new AudioRecorder();
 
@@ -59,21 +56,14 @@ Alternatively, just use a script tag:
 ```javascript
 <script type="text/javascript" src="audiorecorder.js"></script>
 ```
-Also, you must make sure that you distribute the web worker / worklet files "mp3worklet.js" and "mp3worker.js" along with your application.
+Also, you must make sure that you distribute the web worker file "mp3worker.js" along with your application.
 
-### Preload the MP3 encoder workers:
+### Preload the MP3 encoder worker:
 
 ```javascript
 // This is a static method.
 // You should preload the worker immediately on page load to enable recording to start quickly
-// Either the worklet OR worker will be preloaded (but not both), depending on the browser support.
-AudioRecorder.preload({
-	workletUrl : "./mp3worklet.js",
-	workerUrl : "./mp3worker.js",
-
-	// Used for debugging only. Force a preload of both the worklet and worker.
-	// preloadBoth : true
-});
+AudioRecorder.preload("./mp3worker.js");
 ```
 
 ### Create an audio recorder
@@ -93,7 +83,6 @@ let recorder = new AudioRecorder({
 	},
 
 	// Used for debugging only. Force using the older script processor instead of AudioWorklet.
-	// Will break preloading unless preloadBoth was used.
 	// forceScriptProcessor : true
 });
 ```
@@ -185,18 +174,20 @@ Error handling can be done either via promises and catching errors, or via the o
 
 These are named via the error.name property
 
-- **CancelStartError** - if stop() is called while start() has not completed (perhaps due to slow loading of the workers), then both the start and stop promises will reject with this error. However, if using the onerror event handler this error will **not** be given (as it's not _really_ an error, but a deliberate action of the user). In that case, the onstop event handler will receive null instead of an mp3 Blob.
-- **WorkerError** - there was some problem loading the workers, maybe the URLs were incorrect or the internet broke
+- **CancelStartError** - if stop() is called while start() has not completed (perhaps due to slow loading of the worker), then both the start and stop promises will reject with this error. However, if using the onerror event handler this error will **not** be given (as it's not _really_ an error, but a deliberate action of the user). In that case, the onstop event handler will receive null instead of an mp3 Blob.
+- **WorkerError** - there was some problem loading the worker, maybe the URL was incorrect or the internet broke
 - _getUserMedia errors_ - any error that [getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia) can fail with, such as NotAllowedError or NotFoundError
 - _Miscellaneous unnamed errors_ - if you do something like calling start() while recording has already started, or forgetting to call preload() before creating an AudioRecorder, then you'll probably see some other errors.
 
 ### Known issues
 
-Simple Audio Recorder encodes using an AudioWorkletNode where supported, and falls back to using the deprecated ScriptProcessorNode along with a regular Web Worker on older browsers. However, there seem to be some occasional issues using AudioWorkletNode on iOS/Safari. After about 45 seconds, audio packets from the microphone start to get dropped, creating a recording that is shorter than expected with stuttering and glitches. So currently, the deprecated ScriptProcessorNode will always be used on iOS/Safari.
+#### iOS/Safari
 
-AFAIK this is an unsolved issue, perhaps related to Safari's implementation of AudioWorklets and them not being given enough CPU priority. These issues only appear on some devices.
+Simple Audio Recorder uses an AudioWorkletNode to extract the audio data, where supported, and falls back to using the deprecated ScriptProcessorNode on older browsers. However, there seem to be some occasional issues using AudioWorkletNode on iOS/Safari. After about 45 seconds, audio packets from the microphone start to get dropped, creating a recording that is shorter than expected with stuttering and glitches. So currently, the deprecated ScriptProcessorNode will always be used on iOS/Safari.
 
-Curiously, similar glitches have also been experienced when using ScriptProcessorNode on Chrome.
+AFAIK this is an unsolved issue, perhaps related to Safari's implementation of AudioWorklets and them not being given enough CPU priority. These issues only appear on some devices. Curiously, similar glitches have also been experienced when using the old ScriptProcessorNode on Chrome on other platforms.
+
+Chrome isn't any better on iOS either as they are forced to use Safari under the hood (somehow, [this feels rather familiar](https://en.wikipedia.org/wiki/United_States_v._Microsoft_Corp.)).
 
 ## Licenses
-SimpleAudioRecorder is mostly MIT licenced, but the worklet and worker are probably LGPL as they use [lamejs](https://github.com/zhuker/lamejs).
+SimpleAudioRecorder is mostly MIT licenced, but the worker is probably LGPL as it uses [lamejs](https://github.com/zhuker/lamejs).
