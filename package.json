@@ -1,6 +1,6 @@
 {
   "name": "simple-audio-recorder",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Web audio recording library with encoding to mp3 and chunked output",
   "keywords" : ["audio", "sound", "recorder", "mp3", "encoder", "microphone"],
   "homepage" : "https://github.com/bobbles911/simple-audio-recorder",
