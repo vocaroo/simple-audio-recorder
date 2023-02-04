@@ -33,7 +33,17 @@ recorder.stop().then(mp3Blob => {
 
 ## Examples
 
-Look in the ./examples/ directory. Start them with:
+### On codepen
+
+- [Minimal promise example](https://codepen.io/bobbles911/pen/JjBzPvm)
+- [Main example of all features](https://codepen.io/bobbles911/pen/rNrRBZd)
+
+### Included in the project
+
+To run the built in examples in the ./examples/ directory, start a dev server from the project root and then navigate to them.
+
+Or start developing with:
+
 ```bash
 yarn install
 yarn start
