@@ -177,9 +177,9 @@ export default class AudioRecorder {
 		}
 		
 		if (this.useAudioWorklet()) {
-			this.outputNode && this.outputNode.port.onmessage = null;
+			this.outputNode && (this.outputNode.port.onmessage = null);
 		} else {
-			this.outputNode && this.outputNode.onaudioprocess = null;
+			this.outputNode && (this.outputNode.onaudioprocess = null);
 		}
 		
 		this.outputNode && this.outputNode.disconnect();
