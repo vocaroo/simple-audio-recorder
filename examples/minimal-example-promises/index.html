@@ -5,10 +5,7 @@
 	</head>
 	<body>
 		<script>
-			AudioRecorder.preload({
-				workletUrl : "../../dist/mp3worklet.js",
-				workerUrl : "../../dist/mp3worker.js"
-			});
+			AudioRecorder.preload("../../dist/mp3worker.js");
 			
 			let recorder = new AudioRecorder();
 			

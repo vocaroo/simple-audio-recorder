@@ -1,12 +1,12 @@
-import {waitForAudioWorkletNodeShim, createAudioWorkletNodeShim} from "./mp3worker/AudioWorkletNodeShim.js";
-import {stopStream, detectIOS, detectSafari, is_iPhone_OS_16_1} from "./utils.js";
+import WorkerEncoder from "./mp3worker/WorkerEncoder.js";
 import Timer from "./Timer.js";
+import {stopStream, detectIOS, detectSafari} from "./utils.js";
 
 const AudioContext = window.AudioContext || window.webkitAudioContext;
-// Don't use audio worklet on iOS or safari, fall back to ScriptProcessor (via AudioWorkletNodeShim)
+// Don't use audio worklet on iOS or safari, fall back to ScriptProcessor.
 // There are issues with dropped incoming audio data after ~45 seconds. Thus, the resulting audio would be shorter and sped up / glitchy.
 // Curiously, these same issues are present if *not using* AudioWorklet on Chrome
-const useAudioWorklet = window.AudioWorklet && !detectIOS() && !detectSafari();
+const audioWorkletSupported = window.AudioWorklet && !detectIOS() && !detectSafari();
 
 const states = {
 	STOPPED : 0,
@@ -30,68 +30,7 @@ const DEFAULT_OPTIONS = {
 	}
 };
 
-const DEFAULT_PRELOAD_OPTIONS = {
-	workletUrl : "./mp3worklet.js",
-	workerUrl : "./mp3worker.js",
-	preloadBoth : false
-};
-
-// We use a single global AudioContext for all audiorecorders so we only load the AudioWorklet once (and can preload it)
-let audioContext = new AudioContext();
-let preloadOptions = null;
-let workletPromise = null;
-let workerPromise = null;
-
-function recreateAudioContext() { // Ugly hack for iPhone OS 16.1
-	audioContext.close();
-	audioContext = new AudioContext();
-	
-	// Might need to reload worklet (if it's even used on iOS...)
-	// Worker is not attached to audioContext so does not need reloading.
-	workletPromise = null;
-}
-
-function loadWorklet() {
-	if (workletPromise == null) {
-		workletPromise = audioContext.audioWorklet.addModule(preloadOptions.workletUrl);
-		
-		workletPromise.catch(error => { // Reset so it can be tried again if user presses to record again
-			workletPromise = null;
-		});
-	}
-	
-	return workletPromise;
-}
-
-function loadWorker() {
-	if (workerPromise == null) {
-		workerPromise = waitForAudioWorkletNodeShim(preloadOptions.workerUrl);
-		
-		workerPromise.catch(error => { // Reset so it can be tried again if user presses to record again
-			workerPromise = null;
-		});
-	}
-	
-	return workerPromise;
-}
-
-function preloadWorkers(options) {
-	preloadOptions = {
-		...DEFAULT_PRELOAD_OPTIONS,
-		...options
-	};
-	
-	if (options.preloadBoth) {
-		loadWorklet();
-		loadWorker();
-	} else {
-		if (useAudioWorklet) {
-			loadWorklet();
-		} else {
-			loadWorker();
-		}
-	}
-}
+let workerUrl = null;
 
 function createCancelStartError() {
 	let error = new Error("AudioRecorder start cancelled by call to stop");
@@ -99,11 +38,31 @@ function createCancelStartError() {
 	return error;
 }
 
-function createWorkerLoadError() {
-	let error = new Error("Failed to load worklet or worker");
-	error.name = "WorkerError";
-	return error;
+function getNumberOfChannels(stream) {
+	let audioTracks = stream.getAudioTracks();
+	
+	if (audioTracks.length < 1) {
+		throw new Error("No audio tracks in user media stream");
+	}
+	
+	let trackSettings = audioTracks[0].getSettings();
+	return "channelCount" in trackSettings ? trackSettings.channelCount : 1;
 }
+
+// Worklet does nothing more than pass the data out, to be actually encoded by a regular Web Worker
+// Previously this was rewritten to do the encoding within an AudioWorklet, and it was all very nice and clean
+// but apparently doing anything that uses much CPU in a AudioWorklet will cause glitches in some browsers.
+// So, it's best to do the encoding in a regular Web Worker.
+const AUDIO_OUTPUT_MODULE_URL = URL.createObjectURL(new Blob([`
+	class AudioOutputProcessor extends AudioWorkletProcessor {
+		process(inputs, outputs) {
+			this.port.postMessage(inputs[0]);
+			return true;
+		}
+	}
+
+	registerProcessor("audio-output-processor", AudioOutputProcessor);
+`], {type : "application/javascript"}));
 
 /*
 Callbacks:
@@ -120,6 +79,7 @@ export default class AudioRecorder {
 		};
 
 		this.state = states.STOPPED;
+		this.audioContext = null;
 		this.encoder = null;
 		this.encodedData = null;
 		this.stopPromiseResolve = null;
@@ -131,100 +91,121 @@ export default class AudioRecorder {
 		return AudioContext && navigator && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
 	}
 	
-	static preload(options) {
-		preloadWorkers(options);
+	static preload(_workerUrl) {
+		workerUrl = _workerUrl;
+		WorkerEncoder.preload(workerUrl);
 	}
 	
-	// useAudioWorklet may be set... But will we REALLY use it?
-	reallyUseAudioWorklet() {
-		return useAudioWorklet && !this.options.forceScriptProcessor;
+	// Will we use AudioWorklet?
+	useAudioWorklet() {
+		return audioWorkletSupported && !this.options.forceScriptProcessor;
 	}
 	
-	async tryLoadWorklet() {
-		let loadFunc = this.reallyUseAudioWorklet() ? loadWorklet : loadWorker;
-		
-		try {
-			await loadFunc();
-		} catch (error) {
-			throw createWorkerLoadError();
-		}
+	createAndStartEncoder(numberOfChannels) {
+		this.encoder = new WorkerEncoder({
+			originalSampleRate : this.audioContext.sampleRate,
+			numberOfChannels : numberOfChannels,
+			encoderBitRate : this.options.encoderBitRate,
+			streamBufferSize : this.options.streamBufferSize
+		});
+
+		this.encoder.ondataavailable = (data) => {
+			if (this.options.streaming) {
+				this.ondataavailable && this.ondataavailable(data);
+			} else {
+				this.encodedData.push(data);
+			}
+		};
+
+		this.encoder.onstopped = () => {
+			this.state = states.STOPPED;
+			let mp3Blob = this.options.streaming ? undefined : new Blob(this.encodedData, {type : "audio/mpeg"});
+			this.onstop && this.onstop(mp3Blob);
+			this.stopPromiseResolve(mp3Blob);
+		};
+
+		this.encoder.start();
 	}
 
-	createEncoderWorklet(trackSettings) {
-		let numberOfChannels = "channelCount" in trackSettings ? trackSettings.channelCount : 1;
-		
-		if (this.reallyUseAudioWorklet()) {
+	createOutputNode(numberOfChannels) {		
+		if (this.useAudioWorklet()) {
 			console.log("Using AudioWorklet");
-			
-			this.encoderWorkletNode = new AudioWorkletNode(audioContext, "mp3-encoder-processor", {
-				numberOfInputs : 1,
-				numberOfOutputs : 0,
-				processorOptions : {
-					originalSampleRate : audioContext.sampleRate,
-					numberOfChannels : numberOfChannels,
-					encoderBitRate : this.options.encoderBitRate,
-					streamBufferSize : this.options.streamBufferSize
+
+			this.outputNode = new AudioWorkletNode(this.audioContext, "audio-output-processor", {numberOfOutputs : 0});
+
+			this.outputNode.port.onmessage = ({data}) => {
+				if (this.state == states.RECORDING) {
+					this.encoder.sendData(data);
 				}
-			});
+			};
 		} else {
 			console.log("Using ScriptProcessorNode");
 			
-			this.encoderWorkletNode = createAudioWorkletNodeShim(audioContext, {
-				originalSampleRate : audioContext.sampleRate,
-				numberOfChannels : numberOfChannels,
-				encoderBitRate : this.options.encoderBitRate,
-				streamBufferSize : this.options.streamBufferSize
-			});
-		}
-		
-		this.encoderWorkletNode.port.onmessage = ({data}) => {
-			switch (data.message) {
-				case "data":
-					if (this.options.streaming) {
-						this.ondataavailable && this.ondataavailable(data.data);
-					} else {
-						this.encodedData.push(data.data);
+			this.outputNode = this.audioContext.createScriptProcessor(4096, numberOfChannels, numberOfChannels);
+
+			this.outputNode.connect(this.audioContext.destination);
+			this.outputNode.onaudioprocess = (event) => {
+				if (this.state == states.RECORDING) {
+					let inputBuffer = event.inputBuffer;
+					let buffers = [];
+
+					for (let i = 0; i < inputBuffer.numberOfChannels; i ++) {
+						buffers.push(inputBuffer.getChannelData(i));
 					}
-					break;
-				case "stopped":
-					// Encoding has finished. Can clean up some things
-					this.cleanup();
-					this.state = states.STOPPED;
-					let mp3Blob = this.options.streaming ? undefined : new Blob(this.encodedData, {type : "audio/mpeg"});
-					this.onstop && this.onstop(mp3Blob);
-					this.stopPromiseResolve(mp3Blob);
-					break;
-			}
-		};
+
+					this.encoder.sendData(buffers);
+				}
+			};
+		}
 	}
 	
-	connectAudioNodes() {
-		this.recordingGainNode = audioContext.createGain();
+	createAudioNodes(numberOfChannels) {
+		this.createOutputNode(numberOfChannels);
+		
+		this.recordingGainNode = this.audioContext.createGain();
 		this.setRecordingGain(this.options.recordingGain);
-		this.recordingGainNode.connect(this.encoderWorkletNode);
+		this.recordingGainNode.connect(this.outputNode);
 
-		this.sourceNode = audioContext.createMediaStreamSource(this.stream);
+		this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
 		this.sourceNode.connect(this.recordingGainNode);
 	}
 
-	cleanup() {
-		this.encoderWorkletNode && (this.encoderWorkletNode.port.onmessage = null);
-		this.encoderWorkletNode && this.encoderWorkletNode.disconnect();
+	cleanupAudioNodes() {
+		if (this.stream) {
+			stopStream(this.stream);
+			this.stream = null;
+		}
+		
+		if (this.useAudioWorklet()) {
+			this.outputNode && this.outputNode.port.onmessage = null;
+		} else {
+			this.outputNode && this.outputNode.onaudioprocess = null;
+		}
+		
+		this.outputNode && this.outputNode.disconnect();
 		this.recordingGainNode && this.recordingGainNode.disconnect();
 		this.sourceNode && this.sourceNode.disconnect();
-		this.stream && delete this.stream;
+		this.audioContext && this.audioContext.close();
 	}
 
 	setRecordingGain(gain) {
 		this.options.recordingGain = gain;
 
 		if (this.recordingGainNode) {
-			this.recordingGainNode.gain.setTargetAtTime(gain, audioContext.currentTime, 0.01);
+			this.recordingGainNode.gain.setTargetAtTime(gain, this.audioContext.currentTime, 0.01);
 		}
 	}
 	
 	get time() {
 		return this.timer.getTime();
+	}
+	
+	// Called after every "await" in start(), to check that stop wasn't called
+	// and we should abandon starting
+	stoppingCheck() {
+		if (this.state == states.STOPPING) {
+			throw createCancelStartError();
+		}
 	}
 
 	async __start() {
@@ -232,61 +213,45 @@ export default class AudioRecorder {
 			throw new Error("Called start when not in stopped state");
 		}
 		
-		if (preloadOptions == null) {
+		if (workerUrl == null) {
 			throw new Error("preload was not called on AudioRecorder");
 		}
 		
 		this.state = states.STARTING;
 		this.encodedData = [];
+		this.stream = null;
 		
 		try {
-			// Chrome will keep the audio context in a suspended state until there is user interaction
-			// iPhone iOS 16.1 doesn't like this.
-			if (audioContext.state == "suspended" && !is_iPhone_OS_16_1()) {
-				audioContext.resume();
-			}
-			
-			// Ugly hack!
-			// iPhone 16.1 doesn't like it if an AudioContext is used more than once, at least when using getUserMedia
-			if (is_iPhone_OS_16_1()) {
-				console.log("Using ugly fix for iPhone OS 16.1.");
-				recreateAudioContext();
-			}
-			
-			await this.tryLoadWorklet();
-			
-			if (this.state == states.STOPPING) {
-				throw createCancelStartError();
-			}
+			await WorkerEncoder.waitForWorker(workerUrl);
+			this.stoppingCheck();
 			
 			// If a constraint is set, pass them, otherwise just pass true
 			let constraints = Object.keys(this.options.constraints).length > 0 ? this.options.constraints : true;
 			
-			let stream = await navigator.mediaDevices.getUserMedia({audio : constraints});
+			this.stream = await navigator.mediaDevices.getUserMedia({audio : constraints});
+			this.stoppingCheck();
+						
+			this.audioContext = new AudioContext();
 			
-			if (this.state == states.STOPPING) {
-				stopStream(stream);
-				throw createCancelStartError();
+			if (this.useAudioWorklet()) {
+				await this.audioContext.audioWorklet.addModule(AUDIO_OUTPUT_MODULE_URL, {credentials : "omit"});
+				this.stoppingCheck();
 			}
 			
-			let audioTracks = stream.getAudioTracks();
-			
-			if (audioTracks.length < 1) {
-				throw new Error("No audio tracks in user media stream");
-			}
-			
-			this.createEncoderWorklet(audioTracks[0].getSettings());
+			// Channel count must be gotten from the stream, as it might not have supported
+			// the desired amount specified in the constraints
+			let numberOfChannels = getNumberOfChannels(this.stream);
 			
 			// Successfully recording!
-			this.stream = stream;
-			this.connectAudioNodes();
+			this.createAndStartEncoder(numberOfChannels);
+			this.createAudioNodes(numberOfChannels);
 			this.timer.resetAndStart();
 			
 			this.state = states.RECORDING;
 			this.onstart && this.onstart();
 		} catch (error) {
 			let startWasCancelled = this.state == states.STOPPING;
-			this.cleanup();
+			this.cleanupAudioNodes();
 			
 			// Reset so can attempt start again
 			this.state = states.STOPPED;
@@ -304,10 +269,12 @@ export default class AudioRecorder {
 		this.timer.stop();
 		
 		if (this.state == states.RECORDING || this.state == states.PAUSED) {
+			// Stop recording, but encoding may not have finished yet,
+			// so we enter the stopping state.
 			this.state = states.STOPPING;
-			// Stop recording, but encoding may not have finished yet.
-			stopStream(this.stream);
-			this.encoderWorkletNode.port.postMessage({message : "stop_encoding"});
+			
+			this.cleanupAudioNodes();
+			this.encoder.stop();
 			
 			// Will be resolved later when encoding finishes
 			return new Promise((resolve, reject) => {
@@ -361,7 +328,6 @@ export default class AudioRecorder {
 
 	pause() {
 		if (this.state == states.RECORDING) {
-			this.encoderWorkletNode.port.postMessage({message : "pause"});
 			this.state = states.PAUSED;
 			this.timer.stop();
 		}
@@ -369,7 +335,6 @@ export default class AudioRecorder {
 
 	resume() {
 		if (this.state == states.PAUSED) {
-			this.encoderWorkletNode.port.postMessage({message : "resume"});
 			this.state = states.RECORDING;
 			this.timer.start();
 		}

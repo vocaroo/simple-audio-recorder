@@ -44,14 +44,7 @@
 			let timerIntervalId = null;
 			
 			// Preload the worker immediately on page load to enable recording to start instantly
-			// Either the worklet OR worker will be preloaded, depending on the browser support.
-			AudioRecorder.preload({
-				workletUrl : "../../dist/mp3worklet.js",
-				workerUrl : "../../dist/mp3worker.js",
-				
-				// Used for debugging only. Preload both the worklet and worker.
-				preloadBoth : true
-			});
+			AudioRecorder.preload("../../dist/mp3worker.js");
 			
 			function setupRecorder() {
 				audioData = []; // clear old recorded data
@@ -64,13 +57,12 @@
 					streamBufferSize : 50000, // Size of encoded mp3 data chunks returned by ondataavailable					
 					constraints : { // Optional audio constraints, see https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
 						channelCount : 1, // Set to 2 to hint for stereo if it's available
-						autoGainControl : true,
-						echoCancellation : true,
-						noiseSuppression : true
+						autoGainControl : document.getElementById("id_autoGainControl").checked,
+						echoCancellation : document.getElementById("id_echoCancellation").checked,
+						noiseSuppression : document.getElementById("id_noiseSuppression").checked
 					},
 					
 					// Used for debugging only. Force using the older script processor instead of AudioWorklet.
-					// Will break preloading unless preloadBoth was used.
 					forceScriptProcessor : document.getElementById("id_forceScriptProcessor").checked,
 				});
 				
@@ -132,12 +124,17 @@
 			}
 		</script>
 		
-		<button id="id_start" onclick="startRecording()">start recording</button>
-		<button id="id_stop" disabled onclick="stopRecording()">stop recording <span id="id_timer"></span></button>
-		<button id="id_pause" disabled onclick="pause()">pause</button>
-		<button id="id_resume" disabled onclick="resume()">resume</button>
-		force using old script processor: <input id="id_forceScriptProcessor" type="checkbox"></input>
-		
+		<div>
+			<button id="id_start" onclick="startRecording()">start recording</button>
+			<button id="id_stop" disabled onclick="stopRecording()">stop recording <span id="id_timer"></span></button>
+			<button id="id_pause" disabled onclick="pause()">pause</button>
+			<button id="id_resume" disabled onclick="resume()">resume</button>
+		</div>
+		<div>autoGainControl: <input id="id_autoGainControl" type="checkbox" checked></input></div>
+		<div>noiseSuppression: <input id="id_noiseSuppression" type="checkbox" checked></input></div>
+		<div>echoCancellation: <input id="id_echoCancellation" type="checkbox" checked></input></div>
+		<div>force using old script processor: <input id="id_forceScriptProcessor" type="checkbox"></input></div>
+		<hr>
 		<div id="debugLog"></div>
 	</body>
 </html>
