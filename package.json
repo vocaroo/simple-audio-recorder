@@ -3,10 +3,10 @@
   "version": "0.0.5",
   "description": "Web audio recording library with encoding to mp3 and chunked output",
   "keywords" : ["audio", "sound", "recorder", "mp3", "encoder", "microphone"],
-  "homepage" : "https://github.com/bobbles911/simple-audio-recorder",
+  "homepage" : "https://github.com/vocaroo/simple-audio-recorder",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bobbles911/simple-audio-recorder.git"
+    "url": "https://github.com/vocaroo/simple-audio-recorder.git"
   },
   "main": "dist/audiorecorder.js",
   "scripts": {
