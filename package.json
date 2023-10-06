@@ -1,6 +1,6 @@
 {
   "name": "simple-audio-recorder",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Web audio recording library with encoding to mp3 and chunked output",
   "keywords" : ["audio", "sound", "recorder", "mp3", "encoder", "microphone"],
   "homepage" : "https://github.com/vocaroo/simple-audio-recorder",
