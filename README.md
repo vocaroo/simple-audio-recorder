@@ -173,6 +173,11 @@ recorder.setRecordingGain(gain); // Change the volume while recording is in prog
 
 recorder.time; // Access the current recorded duration in milliseconds. Time pauses when recording is paused.
 
+// Get the amount of data remaining to be encoded
+// Will only be much above zero on very slow systems as mp3 encoding is quite fast.
+// A large value indicates there might be a delay between calling stop() and getting the mp3Blob
+recorder.getEncodingQueueSize();
+
 AudioRecorder.isRecordingSupported(); // Static method. Does this browser support getUserMedia?
 ```
 
