@@ -13,6 +13,11 @@ onmessage = function(event) {
 			break;
 		case "data":
 			encoders[event.data.jobId].encode(event.data.buffers);
+			postMessage({ // Encoding of a data packet was completed
+				jobId : event.data.jobId,
+				message : "encoded",
+				srcBufLen : event.data.buffers[0].length
+			});
 			break;
 		case "stop":
 			encoders[event.data.jobId].finishEncoding();

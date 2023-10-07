@@ -200,6 +200,12 @@ export default class AudioRecorder {
 		return this.timer.getTime();
 	}
 	
+	// Get the amount of data left to be encoded.
+	// Useful to estimate if STOPPING state (encoding still ongoing) will last a while.
+	getEncodingQueueSize() {
+		return this.encoder ? this.encoder.getQueuedDataLen() : 0;
+	}
+	
 	// Called after every "await" in start(), to check that stop wasn't called
 	// and we should abandon starting
 	stoppingCheck() {

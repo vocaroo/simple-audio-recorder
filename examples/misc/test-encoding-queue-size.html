@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+	<head>
+		<script>
+		/*
+		Can run
+		sudo nice --10 stress --cpu 8 --timeout 60
+		To test this...
+		Queue size should then show as a large value while stopping,
+		going to zero when finally stopped.
+		*/
+		</script>
+		
+		<script type="text/javascript" src="../../dist/audiorecorder.js"></script>
+	</head>
+	<body>
+		<script>
+			AudioRecorder.preload("../../dist/mp3worker.js");
+			
+			let recorder = new AudioRecorder(
+				//{forceScriptProcessor : true}
+			);
+			
+			function start() {
+				recorder.start().then(() => {
+					console.log("Recording started...");
+				}).catch(error => {
+					console.log("Recording start error", error);
+				});
+			}
+			
+			function stop() {
+				console.log("Stopping...");
+				console.log("Queue size", recorder.getEncodingQueueSize());
+				recorder.stop().then(mp3Blob => {
+					console.log("Recording stopped...");
+					console.log("Queue size", recorder.getEncodingQueueSize());
+					
+					const newAudio = document.createElement("audio");
+					newAudio.src = URL.createObjectURL(mp3Blob);
+					newAudio.controls = true;
+					document.getElementById("id_content").append(newAudio);
+				}).catch(error => {
+					console.log("Recording stop error", error);
+				});
+			}
+		</script>
+		
+		<button id="id_start" onclick="start()">start recording</button>
+		<button id="id_stop" onclick="stop()">stop recording</button>
+		
+		<div id="id_content"></div>
+	</body>
+</html>

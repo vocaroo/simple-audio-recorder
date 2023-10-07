@@ -46,6 +46,11 @@ function loadWorker(workerUrl) {
 			case "ready":
 				notifyWorkerState(workerStates.READY);
 				break;
+			case "encoded":
+				if (event.data.jobId in jobCallbacks) {
+					jobCallbacks[event.data.jobId].onencoded(event.data.srcBufLen);
+				}
+				break;
 			case "data":
 				if (event.data.jobId in jobCallbacks) {
 					jobCallbacks[event.data.jobId].ondataavailable(event.data.data);
@@ -72,8 +77,12 @@ export default class WorkerEncoder {
 	constructor(options) {
 		this.jobId = uuidv4();
 		this.options = options;
+		this.queuedData = 0;
 
 		jobCallbacks[this.jobId] = {
+			onencoded : (srcBufLen) => {
+				this.queuedData -= srcBufLen;
+			},
 			ondataavailable : (data) => {
 				this.ondataavailable && this.ondataavailable(data);
 			},
@@ -124,12 +133,19 @@ export default class WorkerEncoder {
 	sendData(buffers) {
 		// Check for an empty buffer
 		if (buffers && buffers.length > 0 && buffers[0].length > 0) {
+			this.queuedData += buffers[0].length;
+			
 			worker.postMessage({
 				command : "data",
 				jobId : this.jobId,
 				buffers : buffers
 			});
 		}
+	}
+	
+	// Amount of data that is not yet encoded.
+	getQueuedDataLen() {
+		return this.queuedData;
 	}
 
 	stop() {
