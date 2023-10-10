@@ -16,9 +16,14 @@
     "url": "https://github.com/vocaroo/simple-audio-recorder.git"
   },
   "main": "dist/audiorecorder.js",
+  "exports": {
+    ".": "dist/audiorecorder.js",
+    "./react": "dist/react.js"
+  },
   "scripts": {
-    "build": "webpack && webpack --config webpack.worker-config.js",
-    "start": "concurrently \"webpack --watch\" \"webpack --watch --config webpack.worker-config.js\" \"live-server --open=/examples/main-example/\""
+    "build": "webpack && webpack --config webpack.worker-config.js && webpack --config webpack.react-config.js",
+    "postbuild" : "rm dist/*.LICENSE.txt",
+    "start": "concurrently \"webpack --watch\" \"webpack --watch --config webpack.worker-config.js\" \"webpack --watch --config webpack.react-config.js\" \"live-server --open=/examples/main-example/\""
   },
   "license": "MIT",
   "devDependencies": {
@@ -28,9 +33,15 @@
     "concurrently": "^7.6.0",
     "live-server": "1.2.1",
     "webpack": "^5.75.0",
-    "webpack-cli": "^5.0.1"
-  },
-  "dependencies": {
+    "webpack-cli": "^5.0.1",
     "lamejstmp": "1.0.1"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0"
+  },
+  "peerDependenciesMeta": {
+  	"react" : {
+  	  "optional": true
+  	}
   }
 }
