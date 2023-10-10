@@ -13,10 +13,24 @@ export default function App() {
 	);
 	
 	const viewRecording = (
-		<button onClick={recorder.stop}>
-			stop recording ({(recorder.time / 1000.0).toFixed(2) + "s"})
-		</button>
+        <>
+    		<button onClick={recorder.stop}>
+    			stop recording ({(recorder.time / 1000.0).toFixed(2) + "s"})
+    		</button>
+            <button onClick={recorder.pause}>
+                pause
+            </button>
+        </>
 	);
+    
+    const viewPaused = (
+        <>
+            <button onClick={recorder.stop}>
+                stop recording ({(recorder.time / 1000.0).toFixed(2) + "s"})
+            </button>
+            <button onClick={recorder.resume}>resume</button>
+        </>
+    );
 	
 	const viewError = (
 		<>
@@ -31,6 +45,7 @@ export default function App() {
 				{...recorder.getProps()}
 				viewInitial={viewInitial}
 				viewRecording={viewRecording}
+                viewPaused={viewPaused}
 				viewError={viewError}/>
             
             <hr/>
