@@ -265,7 +265,7 @@ const {
 
 - **workerUrl** - URL of the mp3 encoder. Can alternatively be specified using preloadWorker()
 - **onDataAvailable** - optional callback to receive encoded data as it is created.
-- **onComplete** - optional callback, receives the mp3 blob when recording and encoding is finished.
+- **onComplete** - optional callback, receives `{mp3Blob, mp3Url}` when recording and encoding is finished.
 - **onError** - optional callback, receives any error object.
 - **options** - see the documentation for AudioRecorder.
 - **cleanup** - if true, any mp3Urls created via URL.createObjectURL will be freed when unmounting. By default, this is false, and you may need to free them yourself if there is an excessive amount of recordings.
