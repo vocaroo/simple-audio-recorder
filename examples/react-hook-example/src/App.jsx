@@ -7,30 +7,30 @@ export default function App() {
 		onComplete : mp3Blob => console.log("RECORDING COMPLETE!", mp3Blob),
 		onError : error => console.log("RECORDING ERROR!", error)
 	});
-    	
+	
 	const viewInitial = (
 		<button onClick={recorder.start}>start recording</button>
 	);
 	
 	const viewRecording = (
-        <>
-    		<button onClick={recorder.stop}>
-    			stop recording ({(recorder.time / 1000.0).toFixed(2) + "s"})
-    		</button>
-            <button onClick={recorder.pause}>
-                pause
-            </button>
-        </>
+		<>
+			<button onClick={recorder.stop}>
+			stop recording ({(recorder.time / 1000.0).toFixed(2) + "s"})
+			</button>
+			<button onClick={recorder.pause}>
+			pause
+			</button>
+		</>
 	);
-    
-    const viewPaused = (
-        <>
-            <button onClick={recorder.stop}>
-                stop recording ({(recorder.time / 1000.0).toFixed(2) + "s"})
-            </button>
-            <button onClick={recorder.resume}>resume</button>
-        </>
-    );
+	
+	const viewPaused = (
+		<>
+			<button onClick={recorder.stop}>
+			stop recording ({(recorder.time / 1000.0).toFixed(2) + "s"})
+			</button>
+			<button onClick={recorder.resume}>resume</button>
+		</>
+	);
 	
 	const viewError = (
 		<>
@@ -45,16 +45,16 @@ export default function App() {
 				{...recorder.getProps()}
 				viewInitial={viewInitial}
 				viewRecording={viewRecording}
-                viewPaused={viewPaused}
+				viewPaused={viewPaused}
 				viewError={viewError}/>
-            
-            <hr/>
-            
-            {recorder.mp3Urls.toReversed().map(url => 
-                <div key={url}>
-                    <audio src={url} controls/>
-                </div>
-            )}
+			
+			<hr/>
+			
+			{recorder.mp3Urls.toReversed().map(url => 
+				<div key={url}>
+				<audio src={url} controls/>
+				</div>
+			)}
 		</div>
 	);
 }

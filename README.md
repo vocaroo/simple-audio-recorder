@@ -40,7 +40,7 @@ import {SimpleAudioRecorder, useSimpleAudioRecorder} from "simple-audio-recorder
 
 export default function App() {
 	const recorder = useSimpleAudioRecorder({workerUrl : "mp3worker.js"});
-    	
+	
 	const viewInitial = <button onClick={recorder.start}>start recording</button>;
 	const viewRecording = <button onClick={recorder.stop}>stop recording</button>;
 	const viewError = (<>{viewInitial} <div>Error occurred! {recorder.errorStr}</div></>);
@@ -67,6 +67,7 @@ export default function App() {
 
 - [Minimal promise example](https://codepen.io/bobbles911/pen/JjBzPvm)
 - [Main example of all features](https://codepen.io/bobbles911/pen/rNrRBZd)
+- [React hook and component example](https://stackblitz.com/edit/react-61mepu?file=src%2FApp.js)
 
 ### Included in the project
 
