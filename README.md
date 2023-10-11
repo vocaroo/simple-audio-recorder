@@ -4,7 +4,9 @@
 
 A simple web audio recording library with encoding to MP3 (using [lamejs](https://github.com/zhuker/lamejs)) and optional streaming/chunked output. Made by [Vocaroo, the quick and easy online voice recorder](https://vocaroo.com)!
 
-Why use an MP3 encoder when the MediaRecorder API is available? Because MP3 is the most widely recognised and compatible format, and there is no guarantee of what formats MediaRecorder supports (but it's usually Opus). The resulting Opus file can still only be played back on certain browsers, while MP3 has close to 100% support. Sometimes, you _need_ to give your users an MP3 file!
+Now including both a vanilla-js version and an _astonishingly_ easy to use react hook and component!
+
+### Vanilla-js
 
 ```javascript
 import AudioRecorder from "simple-audio-recorder";
@@ -31,6 +33,34 @@ recorder.stop().then(mp3Blob => {
 });
 ```
 
+### React hook and component
+
+```JSX
+import {SimpleAudioRecorder, useSimpleAudioRecorder} from "simple-audio-recorder/react";
+
+export default function App() {
+	const recorder = useSimpleAudioRecorder({workerUrl : "mp3worker.js"});
+    	
+	const viewInitial = <button onClick={recorder.start}>start recording</button>;
+	const viewRecording = <button onClick={recorder.stop}>stop recording</button>;
+	const viewError = (<>{viewInitial} <div>Error occurred! {recorder.errorStr}</div></>);
+	
+	return (
+		<div>
+			<SimpleAudioRecorder
+				{...recorder.getProps()}
+				viewInitial={viewInitial}
+				viewRecording={viewRecording}
+				viewError={viewError}/>
+            
+            {recorder.mp3Urls.map(url => 
+                <audio key={url} src={url} controls/>
+            )}
+		</div>
+	);
+}
+```
+
 ## Examples
 
 ### On codepen
@@ -39,6 +69,10 @@ recorder.stop().then(mp3Blob => {
 - [Main example of all features](https://codepen.io/bobbles911/pen/rNrRBZd)
 
 ### Included in the project
+
+- [Minimal promise example](examples/minimal-example-promises)
+- [Main example of all features](examples/main-example)
+- [React hook and component example](examples/react-hook-example)
 
 To run the built in examples in the ./examples/ directory, start a dev server from the project root and then navigate to them.
 
@@ -193,6 +227,85 @@ These are named via the error.name property
 - **WorkerError** - there was some problem loading the worker, maybe the URL was incorrect or the internet broke
 - _getUserMedia errors_ - any error that [getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia) can fail with, such as NotAllowedError or NotFoundError
 - _Miscellaneous unnamed errors_ - if you do something like calling start() while recording has already started, or forgetting to call preload() before creating an AudioRecorder, then you'll probably see some other errors.
+
+### React hook and component
+
+Please see the [react hook and component example](examples/react-hook-example) for a working example of usage.
+
+#### Importing
+
+```javascript
+import {useSimpleAudioRecorder, SimpleAudioRecorder, preloadWorker, RecorderStates} from "simple-audio-recorder/react"
+```
+
+#### useSimpleAudioRecorder hook
+
+```javascript
+const {
+	error, // Any current error object, or null
+	errorStr, // Error object as string, or null
+	time, // Current recorded time in milliseconds
+	mp3Blobs, // List of all recordings as a blob
+	mp3Urls, // List of all recordings as URLs (created with URL.createObjectURL)
+	mp3Blob, // Single most recent recording blob
+	mp3Url, // Single most recent recording URL
+	start, stop, pause, resume, // Recording functions
+	recorderState, // Current state of recorder (see RecorderStates)
+	getProps // Function to get the props that can be passed to the SimpleAudioRecorder react component
+} = useSimpleAudioRecorder({
+	workerUrl, onDataAvailable, onComplete, onError, options, cleanup = false, timeUpdateStep = 111
+})
+```
+
+- **workerUrl** - URL of the mp3 encoder. Can alternatively be specified using preloadWorker()
+- **onDataAvailable** - optional callback to receive encoded data as it is created.
+- **onComplete** - optional callback, receives the mp3 blob when recording and encoding is finished.
+- **onError** - optional callback, receives any error object.
+- **options** - see the documentation for AudioRecorder.
+- **cleanup** - if true, any mp3Urls created via URL.createObjectURL will be freed when unmounting. By default, this is false, and you may need to free them yourself if there is an excessive amount of recordings.
+- **timeUpdateStep** - how often in milliseconds the returned time will be updated.
+
+#### SimpleAudioRecorder component
+
+This is a very simply state machine component that shows a different view component depending on the current recorder state.
+
+```javascript
+SimpleAudioRecorder({
+	// As returned by useSimpleAudioRecorder
+	recorderState,
+	// The components to display in each of the states.
+	// Only viewInitial and viewRecording are absolutely required.
+	viewInitial, viewStarting, viewRecording, viewPaused, viewEncoding, viewComplete, viewError
+})
+```
+
+- **viewInitial** - initial state of the recorder, you should show a "start recording" button that calls the `start` function from useSimpleAudioRecorder.
+- **viewStarting** - optional state, will show when recording is starting but has not yet started, for example while the user is responding to the microphone access prompt.
+- **viewRecording** - required state, recording is in progress! You may want to show stop and pause buttons here that call the `stop` and `pause` functions.
+- **viewPaused** - required if the pause function is used. Show resume or stop buttons.
+- **viewEncoding** - optional. This may show in very rare cases when the user has a very slow device and mp3 encoding is still ongoing after recording has been stopped.
+- **viewComplete** - optional, shown after recording has completed successfully. Defaults to viewInitial.
+- **viewError** - optional, but highly recommended. Shown when there is a recording error. You can display the contents of the error object or errorStr from useSimpleAudioRecorder.
+
+#### preloadWorker(workerUrl)
+
+Instead of passing a workerUrl to `useSimpleAudioRecorder`, it's better to call this function somewhere at the start of your app to preload the worker as soon as possible.
+
+#### RecorderStates
+
+An enumeration of possible recorder states. Used by the SimpleAudioRecorder component.
+
+```javascript
+RecorderStates = {
+	INITIAL,
+	STARTING,
+	RECORDING,
+	PAUSED,
+	ENCODING,
+	COMPLETE,
+	ERROR
+}
+```
 
 ### Known issues
 
