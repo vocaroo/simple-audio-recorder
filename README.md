@@ -53,9 +53,9 @@ export default function App() {
 				viewRecording={viewRecording}
 				viewError={viewError}/>
             
-            {recorder.mp3Urls.map(url => 
-                <audio key={url} src={url} controls/>
-            )}
+			{recorder.mp3Urls.map(url => 
+				<audio key={url} src={url} controls/>
+			)}
 		</div>
 	);
 }
@@ -235,7 +235,12 @@ Please see the [react hook and component example](examples/react-hook-example) f
 #### Importing
 
 ```javascript
-import {useSimpleAudioRecorder, SimpleAudioRecorder, preloadWorker, RecorderStates} from "simple-audio-recorder/react"
+import {
+	useSimpleAudioRecorder,
+	SimpleAudioRecorder,
+	preloadWorker,
+	RecorderStates
+} from "simple-audio-recorder/react"
 ```
 
 #### useSimpleAudioRecorder hook
@@ -267,7 +272,7 @@ const {
 
 #### SimpleAudioRecorder component
 
-This is a very simply state machine component that shows a different view component depending on the current recorder state.
+This is a very simple state machine component that shows a different view component depending on the current recorder state.
 
 ```javascript
 SimpleAudioRecorder({

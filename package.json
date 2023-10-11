@@ -8,7 +8,9 @@
     "recorder",
     "mp3",
     "encoder",
-    "microphone"
+    "microphone",
+    "react",
+    "hook"
   ],
   "homepage": "https://github.com/vocaroo/simple-audio-recorder",
   "repository": {
