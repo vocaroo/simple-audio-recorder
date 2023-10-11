@@ -1,6 +1,6 @@
 {
   "name": "simple-audio-recorder",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Web audio recording library with encoding to mp3 and chunked output",
   "keywords": [
     "audio",
@@ -24,7 +24,7 @@
   },
   "scripts": {
     "build": "webpack && webpack --config webpack.worker-config.js && webpack --config webpack.react-config.js",
-    "postbuild" : "rm dist/*.LICENSE.txt",
+    "postbuild": "rm dist/*.LICENSE.txt",
     "start": "concurrently \"webpack --watch\" \"webpack --watch --config webpack.worker-config.js\" \"webpack --watch --config webpack.react-config.js\" \"live-server --open=/examples/main-example/\""
   },
   "license": "MIT",
@@ -33,17 +33,17 @@
     "@babel/preset-env": "^7.20.2",
     "babel-loader": "^9.1.0",
     "concurrently": "^7.6.0",
+    "lamejstmp": "1.0.1",
     "live-server": "1.2.1",
     "webpack": "^5.75.0",
-    "webpack-cli": "^5.0.1",
-    "lamejstmp": "1.0.1"
+    "webpack-cli": "^5.0.1"
   },
   "peerDependencies": {
     "react": ">=16.8.0"
   },
   "peerDependenciesMeta": {
-  	"react" : {
-  	  "optional": true
-  	}
+    "react": {
+      "optional": true
+    }
   }
 }
