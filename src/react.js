@@ -115,7 +115,7 @@ export function useSimpleAudioRecorder({
 		setRecorderState(RecorderStates.RECORDING);
 	}
 	
-	const props = {start, stop, pause, resume, recorderState};
+	const props = {recorderState};
 	
 	return {
 		error,
@@ -125,13 +125,17 @@ export function useSimpleAudioRecorder({
 		mp3Urls,
 		mp3Blob : mp3Blobs.at(-1),
 		mp3Url : mp3Urls.at(-1),
+		start,
+		stop,
+		pause,
+		resume,
 		...props,
 		getProps : () => props
 	};
 }
 
 export function SimpleAudioRecorder({
-	start, stop, pause, resume, recorderState,
+	recorderState,
 	viewInitial, viewStarting, viewRecording, viewPaused, viewEncoding, viewComplete, viewError
 }) {
 	// Only viewInitial and viewRecording are required.
