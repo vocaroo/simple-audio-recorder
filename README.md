@@ -52,7 +52,7 @@ export default function App() {
 				viewInitial={viewInitial}
 				viewRecording={viewRecording}
 				viewError={viewError}/>
-            
+			
 			{recorder.mp3Urls.map(url => 
 				<audio key={url} src={url} controls/>
 			)}
@@ -252,7 +252,7 @@ const {
 	error, // Any current error object, or null
 	errorStr, // Error object as string, or null
 	time, // Current recorded time in milliseconds
-    countdownTimeLeft, // Time left of the countdown before recording will start, if one was set
+	countdownTimeLeft, // Time left of the countdown before recording will start, if one was set
 	mp3Blobs, // List of all recordings as a blob
 	mp3Urls, // List of all recordings as URLs (created with URL.createObjectURL)
 	mp3Blob, // Single most recent recording blob
@@ -314,7 +314,7 @@ RecorderStates = {
 	ENCODING,
 	COMPLETE,
 	ERROR,
-    COUNTDOWN
+	COUNTDOWN
 }
 ```
 
