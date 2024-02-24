@@ -5,11 +5,18 @@ export default function App() {
 		workerUrl : "mp3worker.js",
 		onDataAvailable : data => console.log("DATA AVAILABLE", data.length),
 		onComplete : mp3Blob => console.log("RECORDING COMPLETE!", mp3Blob),
-		onError : error => console.log("RECORDING ERROR!", error)
+		onError : error => console.log("RECORDING ERROR!", error),
+		countdown : 3000
 	});
-	
+
 	const viewInitial = (
 		<button onClick={recorder.start}>start recording</button>
+	);
+
+	const viewCountdown = (
+		<button onClick={recorder.start} disabled>
+			Recording in {Math.ceil(recorder.countdownTimeLeft / 1000.0)}...
+		</button>
 	);
 	
 	const viewRecording = (
@@ -44,6 +51,7 @@ export default function App() {
 			<SimpleAudioRecorder
 				{...recorder.getProps()}
 				viewInitial={viewInitial}
+				viewCountdown={viewCountdown}
 				viewRecording={viewRecording}
 				viewPaused={viewPaused}
 				viewError={viewError}/>

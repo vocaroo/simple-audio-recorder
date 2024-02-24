@@ -214,7 +214,7 @@ export default class AudioRecorder {
 		}
 	}
 
-	async __start() {
+	async __start(paused) {
 		if (this.state != states.STOPPED) {
 			throw new Error("Called start when not in stopped state");
 		}
@@ -251,9 +251,15 @@ export default class AudioRecorder {
 			// Successfully recording!
 			this.createAndStartEncoder(numberOfChannels);
 			this.createAudioNodes(numberOfChannels);
-			this.timer.resetAndStart();
-			
-			this.state = states.RECORDING;
+
+			if (paused) {
+				this.timer.reset();
+				this.state = states.PAUSED;
+			} else {
+				this.timer.resetAndStart();
+				this.state = states.RECORDING;
+			}
+
 			this.onstart && this.onstart();
 		} catch (error) {
 			let startWasCancelled = this.state == states.STOPPING;
@@ -298,8 +304,8 @@ export default class AudioRecorder {
 		throw new Error("Called stop when AudioRecorder was not started");
 	}
 	
-	start() {
-		let promise = this.__start();
+	start(paused = false) {
+		let promise = this.__start(paused);
 		
 		promise.catch(error => {
 			// Don't send CancelStartError to onerror, as it's not *really* an error state
