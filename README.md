@@ -4,7 +4,7 @@
 
 A simple web audio recording library with encoding to MP3 (using [lamejs](https://github.com/zhuker/lamejs)) and optional streaming/chunked output. Made by [Vocaroo, the quick and easy online voice recorder](https://vocaroo.com)!
 
-Now including both a vanilla-js version and an _astonishingly_ easy to use react hook and component!
+Now including both a vanilla-js version and an easy to use react hook and component!
 
 ### Vanilla-js
 
@@ -201,6 +201,7 @@ recorder.stop().then(() => {
 ### Other functions/attributes
 
 ```javascript
+recorder.start(paused = false); // Supports starting in paused mode
 recorder.pause();
 recorder.resume();
 
@@ -251,6 +252,7 @@ const {
 	error, // Any current error object, or null
 	errorStr, // Error object as string, or null
 	time, // Current recorded time in milliseconds
+    countdownTimeLeft, // Time left of the countdown before recording will start, if one was set
 	mp3Blobs, // List of all recordings as a blob
 	mp3Urls, // List of all recordings as URLs (created with URL.createObjectURL)
 	mp3Blob, // Single most recent recording blob
@@ -259,7 +261,7 @@ const {
 	recorderState, // Current state of recorder (see RecorderStates)
 	getProps // Function to get the props that can be passed to the SimpleAudioRecorder react component
 } = useSimpleAudioRecorder({
-	workerUrl, onDataAvailable, onComplete, onError, options, cleanup = false, timeUpdateStep = 111
+	workerUrl, onDataAvailable, onComplete, onError, options, cleanup = false, timeUpdateStep = 111, countdown = 0
 })
 ```
 
@@ -270,6 +272,7 @@ const {
 - **options** - see the documentation for AudioRecorder.
 - **cleanup** - if true, any mp3Urls created via URL.createObjectURL will be freed when unmounting. By default, this is false, and you may need to free them yourself if there is an excessive amount of recordings.
 - **timeUpdateStep** - how often in milliseconds the returned time will be updated.
+- **countdown** - a countdown time in milliseconds until recording will actually start, running from after start() was called and microphone access has been granted. Defaults to zero.
 
 #### SimpleAudioRecorder component
 
@@ -281,12 +284,13 @@ SimpleAudioRecorder({
 	recorderState,
 	// The components to display in each of the states.
 	// Only viewInitial and viewRecording are absolutely required.
-	viewInitial, viewStarting, viewRecording, viewPaused, viewEncoding, viewComplete, viewError
+	viewInitial, viewStarting, viewCountdown, viewRecording, viewPaused, viewEncoding, viewComplete, viewError
 })
 ```
 
 - **viewInitial** - initial state of the recorder, you should show a "start recording" button that calls the `start` function from useSimpleAudioRecorder.
 - **viewStarting** - optional state, will show when recording is starting but has not yet started, for example while the user is responding to the microphone access prompt.
+- **viewCountdown** - optional, will show when in the countdown state if a greater than zero countdown time has been set.
 - **viewRecording** - required state, recording is in progress! You may want to show stop and pause buttons here that call the `stop` and `pause` functions.
 - **viewPaused** - required if the pause function is used. Show resume or stop buttons.
 - **viewEncoding** - optional. This may show in very rare cases when the user has a very slow device and mp3 encoding is still ongoing after recording has been stopped.
@@ -309,7 +313,8 @@ RecorderStates = {
 	PAUSED,
 	ENCODING,
 	COMPLETE,
-	ERROR
+	ERROR,
+    COUNTDOWN
 }
 ```
 
