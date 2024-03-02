@@ -1,6 +1,6 @@
 {
   "name": "simple-audio-recorder",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Web audio recording library with encoding to mp3 and chunked output",
   "keywords": [
     "audio",
