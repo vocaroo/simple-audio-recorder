@@ -95,6 +95,7 @@ export function useSimpleAudioRecorder({
 		recorderRef.current = new AudioRecorder({...options, streaming : true});
 		
 		setRecorderState(RecorderStates.STARTING);
+		setCountdownTimeLeft(countdown);
 		
 		recorderRef.current.ondataavailable = (data) => {
 			audioDataRef.current.push(data);

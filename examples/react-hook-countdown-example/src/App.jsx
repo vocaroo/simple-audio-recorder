@@ -14,7 +14,7 @@ export default function App() {
 	);
 
 	const viewCountdown = (
-		<button onClick={recorder.start} disabled>
+		<button disabled>
 			Recording in {Math.ceil(recorder.countdownTimeLeft / 1000.0)}...
 		</button>
 	);
