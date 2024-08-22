@@ -33,7 +33,7 @@ export function useSimpleAudioRecorder({
 	cleanup = false,
 	timeUpdateStep = 111,
 	countdown = 0
-}) {
+} = {}) {
 	const [recorderState, setRecorderState] = useState(RecorderStates.INITIAL);
 	const [mp3Blobs, setMp3Blobs] = useState([]);
 	const [mp3Urls, setMp3Urls] = useState([]);
