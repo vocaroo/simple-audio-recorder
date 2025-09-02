@@ -4,6 +4,8 @@
 
 A simple web audio recording library with encoding to MP3 (using [lamejs](https://github.com/zhuker/lamejs)) and optional streaming/chunked output. Made by [Vocaroo, the quick and easy online voice recorder](https://vocaroo.com)!
 
+**NOTE**: *This library is considered basically feature complete. However, it's definitely not abandoned and is used by thousands of Vocaroo users every day. If anything needs fixing, it will be done, but most issues such as occasional audio glitches are the fault of the web browsers rather than this library.*
+
 Now including both a vanilla-js version and an easy to use react hook and component!
 
 ### Vanilla-js
