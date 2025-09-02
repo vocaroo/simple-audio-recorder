@@ -82,17 +82,16 @@ To run the built in examples in the ./examples/ directory, start a dev server fr
 Or start developing with:
 
 ```bash
-yarn install
-yarn start
+npm install
+npm run dev
 ```
-...or whatever the npm equivalant is.
 
 ## Usage
 
 ### Including
 
 ```javascript
-yarn add simple-audio-recorder
+npm install simple-audio-recorder
 ```
 
 ```javascript
