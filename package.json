@@ -33,6 +33,10 @@
 		"./umd": "./dist/audiorecorder.min.js"
 	},
 	"sideEffects": false,
+	"files" : [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"build": "NODE_ENV=production rollup -c",
 		"dev" : "concurrently \"rollup -c -w\" \"live-server --open=/examples/main-example/\""
