@@ -2,11 +2,15 @@ import WorkerEncoder from "./mp3worker/WorkerEncoder.js";
 import Timer from "./Timer.js";
 import {stopStream, detectIOS, detectSafari} from "./utils.js";
 
-const AudioContext = window.AudioContext || window.webkitAudioContext;
+function getAudioContextCtor() {
+	return window.AudioContext || window.webkitAudioContext;
+}
 // Don't use audio worklet on iOS or safari, fall back to ScriptProcessor.
 // There are issues with dropped incoming audio data after ~45 seconds. Thus, the resulting audio would be shorter and sped up / glitchy.
 // Curiously, these same issues are present if *not using* AudioWorklet on Chrome
-const audioWorkletSupported = window.AudioWorklet && !detectIOS() && !detectSafari();
+function isAudioWorkletSupported() {
+	return window.AudioWorklet && !detectIOS() && !detectSafari();
+}
 
 const states = {
 	STOPPED : 0,
@@ -53,16 +57,26 @@ function getNumberOfChannels(stream) {
 // Previously this was rewritten to do the encoding within an AudioWorklet, and it was all very nice and clean
 // but apparently doing anything that uses much CPU in a AudioWorklet will cause glitches in some browsers.
 // So, it's best to do the encoding in a regular Web Worker.
-const AUDIO_OUTPUT_MODULE_URL = URL.createObjectURL(new Blob([`
-	class AudioOutputProcessor extends AudioWorkletProcessor {
-		process(inputs, outputs) {
-			this.port.postMessage(inputs[0]);
-			return true;
-		}
+let AUDIO_OUTPUT_MODULE_URL = null;
+
+function getAudioOutputModuleUrl() {
+	if (AUDIO_OUTPUT_MODULE_URL) {
+		return AUDIO_OUTPUT_MODULE_URL;
 	}
 
-	registerProcessor("audio-output-processor", AudioOutputProcessor);
-`], {type : "application/javascript"}));
+	AUDIO_OUTPUT_MODULE_URL = URL.createObjectURL(new Blob([`
+		class AudioOutputProcessor extends AudioWorkletProcessor {
+			process(inputs, outputs) {
+				this.port.postMessage(inputs[0]);
+				return true;
+			}
+		}
+
+		registerProcessor("audio-output-processor", AudioOutputProcessor);
+	`], {type : "application/javascript"}));
+
+	return AUDIO_OUTPUT_MODULE_URL;
+}
 
 /*
 Callbacks:
@@ -88,7 +102,7 @@ export default class AudioRecorder {
 	}
 	
 	static isRecordingSupported() {
-		return AudioContext && navigator && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+		return getAudioContextCtor() && navigator && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
 	}
 	
 	static preload(_workerUrl) {
@@ -98,7 +112,7 @@ export default class AudioRecorder {
 	
 	// Will we use AudioWorklet?
 	useAudioWorklet() {
-		return audioWorkletSupported && !this.options.forceScriptProcessor;
+		return isAudioWorkletSupported() && !this.options.forceScriptProcessor;
 	}
 	
 	createAndStartEncoder(numberOfChannels) {
@@ -236,11 +250,12 @@ export default class AudioRecorder {
 			
 			this.stream = await navigator.mediaDevices.getUserMedia({audio : constraints});
 			this.stoppingCheck();
-						
-			this.audioContext = new AudioContext();
+			
+			const _AudioContext = getAudioContextCtor();
+			this.audioContext = new _AudioContext();
 			
 			if (this.useAudioWorklet()) {
-				await this.audioContext.audioWorklet.addModule(AUDIO_OUTPUT_MODULE_URL, {credentials : "omit"});
+				await this.audioContext.audioWorklet.addModule(getAudioOutputModuleUrl(), {credentials : "omit"});
 				this.stoppingCheck();
 			}
 			

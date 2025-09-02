@@ -1,49 +1,62 @@
 {
-  "name": "simple-audio-recorder",
-  "version": "1.2.4",
-  "description": "Web audio recording library with encoding to mp3 and chunked output",
-  "keywords": [
-    "audio",
-    "sound",
-    "recorder",
-    "mp3",
-    "encoder",
-    "microphone",
-    "react",
-    "hook"
-  ],
-  "homepage": "https://github.com/vocaroo/simple-audio-recorder",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/vocaroo/simple-audio-recorder.git"
-  },
-  "main": "dist/audiorecorder.js",
-  "exports": {
-    ".": "dist/audiorecorder.js",
-    "./react": "dist/react.js"
-  },
-  "scripts": {
-    "build": "webpack && webpack --config webpack.worker-config.js && webpack --config webpack.react-config.js",
-    "postbuild": "rm dist/*.LICENSE.txt",
-    "start": "concurrently \"webpack --watch\" \"webpack --watch --config webpack.worker-config.js\" \"webpack --watch --config webpack.react-config.js\" \"live-server --open=/examples/main-example/\""
-  },
-  "license": "MIT",
-  "devDependencies": {
-    "@babel/core": "^7.20.5",
-    "@babel/preset-env": "^7.20.2",
-    "babel-loader": "^9.1.0",
-    "concurrently": "^7.6.0",
-    "lamejstmp": "1.0.1",
-    "live-server": "1.2.1",
-    "webpack": "^5.75.0",
-    "webpack-cli": "^5.0.1"
-  },
-  "peerDependencies": {
-    "react": ">=16.8.0"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    }
-  }
+	"name": "simple-audio-recorder",
+	"version": "1.2.4",
+	"description": "Web audio recording library with encoding to mp3 and chunked output",
+	"keywords": [
+		"audio",
+		"sound",
+		"recorder",
+		"mp3",
+		"encoder",
+		"microphone",
+		"react",
+		"hook"
+	],
+	"homepage": "https://github.com/vocaroo/simple-audio-recorder",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/vocaroo/simple-audio-recorder.git"
+	},
+	"type": "module",
+	"main": "dist/index.cjs",
+	"module": "dist/index.mjs",
+	"exports": {
+		".": {
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.cjs",
+			"default": "./dist/index.mjs"
+		},
+		"./react": {
+			"import": "./dist/react.mjs",
+			"require": "./dist/react.cjs"
+		},
+		"./umd": "./dist/audiorecorder.min.js"
+	},
+	"sideEffects": false,
+	"scripts": {
+		"build": "NODE_ENV=production rollup -c",
+		"dev" : "concurrently \"rollup -c -w\" \"live-server --open=/examples/main-example/\""
+	},
+	"license": "MIT",
+	"devDependencies": {
+		"@babel/core": "^7",
+		"@babel/preset-env": "^7",
+		"@rollup/plugin-babel": "^6",
+		"@rollup/plugin-commonjs": "^25",
+		"@rollup/plugin-node-resolve": "^15",
+		"@rollup/plugin-replace": "^5",
+		"@rollup/plugin-terser": "^0.4.4",
+		"concurrently": "^7.6.0",
+		"lamejstmp": "1.0.1",
+		"live-server": "1.2.1",
+		"rollup": "^4"
+	},
+	"peerDependencies": {
+		"react": ">=16.8.0"
+	},
+	"peerDependenciesMeta": {
+		"react": {
+			"optional": true
+		}
+	}
 }

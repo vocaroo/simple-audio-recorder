@@ -65,7 +65,7 @@ function loadWorker(workerUrl) {
 	};
 
 	worker.onerror = (event) => {
-		console.error("mp3worker error event", event);
+		console.error("mp3worker error. Is the worker URL correct?");
 		notifyWorkerState(workerStates.ERROR);
 	};
 }
