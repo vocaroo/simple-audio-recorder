@@ -1,6 +1,6 @@
 {
 	"name": "simple-audio-recorder",
-	"version": "1.2.4",
+	"version": "1.3.0",
 	"description": "Web audio recording library with encoding to mp3 and chunked output",
 	"keywords": [
 		"audio",
@@ -33,13 +33,13 @@
 		"./umd": "./dist/audiorecorder.min.js"
 	},
 	"sideEffects": false,
-	"files" : [
+	"files": [
 		"dist",
 		"README.md"
 	],
 	"scripts": {
 		"build": "NODE_ENV=production rollup -c",
-		"dev" : "concurrently \"rollup -c -w\" \"live-server --open=/examples/main-example/\""
+		"dev": "concurrently \"rollup -c -w\" \"live-server --open=/examples/main-example/\""
 	},
 	"license": "MIT",
 	"devDependencies": {
